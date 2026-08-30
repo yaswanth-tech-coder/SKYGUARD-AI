@@ -1,0 +1,514 @@
+:root {
+  --bg-primary: #0a0f1d;
+  --bg-secondary: #111827;
+  --bg-card: #162032;
+  --bg-card-hover: #1e2b42;
+  --border-color: #24344d;
+  --border-glow: rgba(59, 130, 246, 0.4);
+  
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  --accent-blue: #3b82f6;
+  --accent-cyan: #06b6d4;
+  --accent-emerald: #10b981;
+  --accent-amber: #f59e0b;
+  --accent-rose: #f43f5e;
+  --accent-purple: #8b5cf6;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-blue);
+}
+
+/* Header & Glassmorphism */
+.glass-panel {
+  background: rgba(22, 32, 50, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* Pulse Animations */
+@keyframes pulse-glow-critical {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(244, 63, 94, 0);
+  }
+}
+
+@keyframes pulse-glow-operational {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes pulse-glow-warning {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+  }
+}
+
+.pulse-critical {
+  animation: pulse-glow-critical 2s infinite;
+}
+
+.pulse-operational {
+  animation: pulse-glow-operational 2.5s infinite;
+}
+
+.pulse-warning {
+  animation: pulse-glow-warning 2s infinite;
+}
+
+/* Severity Badges */
+.badge-critical {
+  background-color: rgba(244, 63, 94, 0.2);
+  color: #fb7185;
+  border: 1px solid rgba(244, 63, 94, 0.4);
+}
+
+.badge-high {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+
+.badge-medium {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.badge-low {
+  background-color: rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+/* Leaflet Map Customizations */
+.leaflet-container {
+  background-color: #090d16 !important;
+  font-family: inherit;
+}
+
+/* 100% Watermark-Free Dark Tiles Filter (No API Key Required) */
+.map-tiles-dark {
+  filter: brightness(0.62) invert(1) contrast(2.8) hue-rotate(200deg) saturate(0.2) brightness(0.82) !important;
+}
+
+.map-tiles-dark img {
+  filter: brightness(0.62) invert(1) contrast(2.8) hue-rotate(200deg) saturate(0.2) brightness(0.82) !important;
+}
+
+.custom-station-pin {
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 11px;
+  color: white;
+  transition: transform 0.2s ease;
+}
+
+.custom-station-pin:hover {
+  transform: scale(1.2);
+  z-index: 1000 !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #162032 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid var(--border-color);
+  border-radius: 8px !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5) !important;
+}
+
+.leaflet-popup-tip {
+  background: #162032 !important;
+}
+
+/* Chart Canvas Wrapper */
+.chart-wrapper {
+  position: relative;
+  width: 100%;
+  height: 380px;
+}
+
+/* Anomaly Ticker / Live Feed Card */
+.anomaly-card {
+  transition: all 0.2s ease;
+  border-left-width: 4px;
+}
+.anomaly-card:hover {
+  background-color: var(--bg-card-hover);
+  transform: translateX(4px);
+}
+.anomaly-card.severity-CRITICAL {
+  border-left-color: var(--accent-rose);
+}
+.anomaly-card.severity-HIGH {
+  border-left-color: var(--accent-amber);
+}
+.anomaly-card.severity-MEDIUM {
+  border-left-color: var(--accent-blue);
+}
+.anomaly-card.severity-LOW {
+  border-left-color: var(--text-muted);
+}
+
+/* ========================================================= */
+/* MAP MARKERS & PILLS (BASE / DARK STYLES)                 */
+/* ========================================================= */
+.city-label-pill {
+  background: rgba(15, 23, 42, 0.88);
+  color: #f1f5f9;
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1.5px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  transition: all 0.2s ease;
+}
+
+.region-label-badge-box {
+  background: rgba(15, 23, 42, 0.88);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+}
+
+/* ========================================================= */
+/* LIGHT MODE THEME OVERRIDES (COMPREHENSIVE)                */
+/* ========================================================= */
+body.light {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* Sidebar & Header */
+body.light aside {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.light header {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.light main {
+  background-color: #f8fafc !important;
+}
+
+/* Card Backgrounds & Borders */
+body.light .bg-cardBg {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light .bg-darkBg {
+  background-color: #f8fafc !important;
+}
+
+body.light .border-cardBorder {
+  border-color: #e2e8f0 !important;
+}
+
+body.light .text-white,
+body.light .dark-heading {
+  color: #0f172a !important;
+}
+
+body.light .text-slate-100 {
+  color: #0f172a !important;
+}
+
+body.light .text-slate-200 {
+  color: #1e293b !important;
+}
+
+body.light .text-slate-300 {
+  color: #334155 !important;
+}
+
+body.light .text-slate-400 {
+  color: #64748b !important;
+}
+
+body.light .bg-slate-900,
+body.light .bg-slate-900\/80,
+body.light .bg-slate-900\/90,
+body.light .bg-slate-900\/60 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+body.light .bg-slate-950,
+body.light .bg-slate-950\/40 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+body.light .bg-slate-800,
+body.light .bg-slate-800\/80 {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #1e293b !important;
+}
+
+body.light .border-slate-800, 
+body.light .border-slate-700,
+body.light .border-slate-800\/80 {
+  border-color: #e2e8f0 !important;
+}
+
+body.light select, 
+body.light input {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* Sidebar Navigation Tabs */
+body.light .sidebar-btn {
+  color: #475569 !important;
+}
+
+body.light .sidebar-btn:hover {
+  background-color: #f1f5f9 !important;
+  color: #0284c7 !important;
+}
+
+body.light .sidebar-btn.active {
+  background: linear-gradient(90deg, rgba(2, 132, 199, 0.12), transparent) !important;
+  border-left-color: #0284c7 !important;
+  color: #0284c7 !important;
+}
+
+/* Map Tiles & Dynamic Light Pills */
+body.light .leaflet-container {
+  background-color: #f1f5f9 !important;
+}
+
+body.light .map-tiles-dark {
+  filter: none !important;
+}
+
+body.light .map-tiles-dark img {
+  filter: none !important;
+}
+
+body.light .city-label-pill {
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: #0f172a !important;
+  border: 1px solid #94a3b8 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15) !important;
+  text-shadow: none !important;
+}
+
+body.light .region-label-badge-box {
+  background: rgba(255, 255, 255, 0.94) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+  border-style: solid !important;
+}
+
+body.light .leaflet-popup-content-wrapper {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+}
+
+body.light .leaflet-popup-tip {
+  background: #ffffff !important;
+}
+
+body.light .map-popup-inner {
+  color: #0f172a !important;
+}
+
+/* Channel Buttons in Time Series Tab */
+body.light .channel-btn:not(.active) {
+  background-color: #ffffff !important;
+  color: #334155 !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.light .channel-btn:not(.active):hover {
+  background-color: #f1f5f9 !important;
+  color: #0284c7 !important;
+}
+
+/* Alert Feed Cards & Triage */
+body.light .anomaly-card-item {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light .anomaly-card-grid {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Fault Injection Studio Elements */
+body.light #fault-inject-form .bg-slate-900\/90 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.light #fault-duration-slider,
+body.light #fault-magnitude-slider {
+  background-color: #e2e8f0 !important;
+}
+
+body.light #fault-live-preview {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.light #btn-clear-faults {
+  background-color: #ffffff !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.light #btn-clear-faults:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+body.light #slider-mag-val {
+  background-color: #eff6ff !important;
+  color: #0284c7 !important;
+  border-color: #bfdbfe !important;
+}
+
+body.light #slider-dur-val {
+  background-color: #fffbeb !important;
+  color: #d97706 !important;
+  border-color: #fde68a !important;
+}
+
+body.light #view-simulator .bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* AI Model Health & XAI Elements */
+body.light #view-models .bg-slate-900\/80,
+body.light #view-models .bg-slate-900 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.light #plotly-3d-container {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+/* Header Action Buttons & Theme Bar */
+body.light #theme-selector-bar {
+  background-color: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.light #btn-step-sim {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #1e293b !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light #btn-step-sim:hover {
+  background-color: #f1f5f9 !important;
+}
+
+body.light #sim-clock-display {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0284c7 !important;
+}
+
+/* Toast Notifications */
+#toast-notification {
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.4), 0 0 15px rgba(0, 0, 0, 0.2);
+}
+
+.toast-close-btn:hover {
+  transform: scale(1.1);
+}
+
+body.light #toast-notification.bg-rose-950 {
+  background-color: #fff1f2 !important;
+  color: #be123c !important;
+  border-color: #fecdd3 !important;
+}
+
+body.light #toast-notification.bg-amber-950 {
+  background-color: #fffbeb !important;
+  color: #b45309 !important;
+  border-color: #fde68a !important;
+}
+
+body.light #toast-notification.bg-emerald-950 {
+  background-color: #ecfdf5 !important;
+  color: #047857 !important;
+  border-color: #a7f3d0 !important;
+}
+
+body.light #toast-notification.bg-slate-900 {
+  background-color: #f0f9ff !important;
+  color: #0369a1 !important;
+  border-color: #bae6fd !important;
+}
+
+
+
+
+

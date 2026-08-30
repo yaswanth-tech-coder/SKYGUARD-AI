@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkyGuard AI - Intelligent Meteorological Anomaly Sentinel</title>
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Plotly.js CDN for OpenStreetMap Scatter & 3D Analytics -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            darkBg: '#090d16',
+            cardBg: '#111827',
+            cardBorder: '#1e293b',
+            cyanAccent: '#06b6d4',
+            emeraldSuccess: '#10b981',
+            amberWarning: '#f59e0b',
+            roseDanger: '#ef4444'
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    body { background-color: #090d16; font-family: 'Inter', sans-serif; color: #f8fafc; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .sidebar-btn.active { background: linear-gradient(90deg, rgba(6,182,212,0.15), transparent); border-left: 3px solid #06b6d4; color: #38bdf8; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+  </style>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="flex h-screen overflow-hidden antialiased selection:bg-cyan-600 selection:text-white">
+
+  <!-- ========================================================= -->
+  <!-- LEFT SIDEBAR                                              -->
+  <!-- ========================================================= -->
+  <aside class="w-64 bg-cardBg border-r border-cardBorder flex flex-col justify-between shrink-0">
+    <div>
+      <!-- Branding without Logo -->
+      <div class="p-5 border-b border-cardBorder">
+        <h1 class="text-base font-extrabold tracking-wider uppercase bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">SkyGuard AI</h1>
+        <div class="flex items-center space-x-2 mt-1">
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950/80 text-cyan-400 font-mono border border-cyan-800/50">Meteorological Sentinel</span>
+        </div>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="p-3 space-y-1.5 text-sm font-medium">
+        <button onclick="window.app.switchTab('map', this)" class="sidebar-btn active w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800/60 transition cursor-pointer" data-tab="map">
+          <i data-lucide="map-pin" class="w-4 h-4 text-cyan-400"></i>
+          <span>Geo Station Map</span>
+        </button>
+        <button onclick="window.app.switchTab('charts', this)" class="sidebar-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800/60 transition cursor-pointer" data-tab="charts">
+          <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i>
+          <span>Time-Series Inspector</span>
+        </button>
+        <button onclick="window.app.switchTab('alerts', this)" class="sidebar-btn w-full flex items-center justify-between px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800/60 transition cursor-pointer" data-tab="alerts">
+          <div class="flex items-center space-x-3">
+            <i data-lucide="bell-ring" class="w-4 h-4 text-roseDanger"></i>
+            <span>Alert Feed & Triage</span>
+          </div>
+          <span id="sidebar-alert-badge" class="px-2 py-0.5 text-xs bg-roseDanger/20 text-roseDanger rounded-full font-bold">0</span>
+        </button>
+        <button onclick="window.app.switchTab('simulator', this)" class="sidebar-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800/60 transition cursor-pointer" data-tab="simulator">
+          <i data-lucide="zap" class="w-4 h-4 text-amberWarning"></i>
+          <span>Fault Injection Studio</span>
+        </button>
+        <button onclick="window.app.switchTab('models', this)" class="sidebar-btn w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800/60 transition cursor-pointer" data-tab="models">
+          <i data-lucide="brain-circuit" class="w-4 h-4 text-purple-400"></i>
+          <span>AI Model Health & XAI</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Simulation Clock Footer -->
+    <div class="p-4 border-t border-cardBorder bg-slate-950/40">
+      <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+        <span>Sim Clock</span>
+        <span class="text-emeraldSuccess font-mono flex items-center"><span class="w-2 h-2 rounded-full bg-emeraldSuccess animate-pulse mr-1.5"></span>Live UTC</span>
+      </div>
+      <div id="sim-clock-display" class="text-xs font-mono text-cyan-300 font-bold bg-cardBg px-3 py-2 rounded border border-cardBorder text-center">
+        Live UTC
+      </div>
+    </div>
+  </aside>
+
+  <!-- ========================================================= -->
+  <!-- MAIN VIEW CONTAINER                                       -->
+  <!-- ========================================================= -->
+  <main class="flex-1 flex flex-col overflow-hidden bg-darkBg">
+    
+    <!-- TOP CONTROL TASKBAR -->
+    <header class="h-16 bg-cardBg/60 backdrop-blur border-b border-cardBorder px-6 flex items-center justify-between shrink-0">
+      <div class="flex items-center space-x-2 text-xs text-slate-400">
+        <span>Network:</span>
+        <span class="text-white font-semibold">IMD Pan-India Automatic Weather Stations (16 Regions)</span>
+      </div>
+      <div class="flex items-center space-x-3">
+        
+        <!-- Dark / Light Mode Selector in Task Bar -->
+        <div class="flex items-center bg-slate-800/90 border border-slate-700 rounded-lg p-0.5 space-x-1" id="theme-selector-bar">
+          <button id="theme-btn-dark" onclick="window.app.setTheme('dark')" class="theme-btn px-2.5 py-1 text-xs font-semibold rounded-md flex items-center space-x-1.5 transition cursor-pointer bg-slate-700 text-cyan-400 shadow">
+            <i data-lucide="moon" class="w-3.5 h-3.5"></i>
+            <span>Dark</span>
+          </button>
+          <button id="theme-btn-light" onclick="window.app.setTheme('light')" class="theme-btn px-2.5 py-1 text-xs font-semibold rounded-md flex items-center space-x-1.5 transition cursor-pointer text-slate-400 hover:text-slate-200">
+            <i data-lucide="sun" class="w-3.5 h-3.5"></i>
+            <span>Light</span>
+          </button>
+        </div>
+
+        <button id="btn-step-sim" class="flex items-center space-x-1.5 px-3.5 py-1.5 text-xs font-medium bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-200 rounded-md transition shadow cursor-pointer">
+          <i data-lucide="step-forward" class="w-3.5 h-3.5"></i>
+          <span>Advance Step (+15m)</span>
+        </button>
+        <button id="btn-auto-sim" class="flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-md shadow-lg shadow-blue-500/25 transition cursor-pointer">
+          <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+          <span>Start Live Stream</span>
+        </button>
+      </div>
+    </header>
+
+
+
+
+
+
+    <!-- KPI SUMMARY CARDS -->
+    <div class="p-6 pb-2 grid grid-cols-1 md:grid-cols-4 gap-4 shrink-0">
+      <div class="bg-cardBg border border-cardBorder p-4 rounded-xl flex items-center justify-between">
+        <div>
+          <div class="text-xs font-semibold tracking-wider text-slate-400 uppercase">AWS Network</div>
+          <div class="text-2xl font-bold text-white mt-1"><span id="stat-total-stations">16</span> <span class="text-xs text-emeraldSuccess font-normal">Active Stations</span></div>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-cyan-400">
+          <i data-lucide="satellite-dish" class="w-5 h-5"></i>
+        </div>
+      </div>
+      <div class="bg-cardBg border border-cardBorder p-4 rounded-xl flex items-center justify-between">
+        <div>
+          <div class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Active Anomalies</div>
+          <div class="text-2xl font-bold text-amberWarning mt-1"><span id="stat-active-anomalies">0</span> <span class="text-xs text-slate-400 font-normal">Unresolved</span></div>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amberWarning">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+        </div>
+      </div>
+      <div class="bg-cardBg border border-cardBorder p-4 rounded-xl flex items-center justify-between">
+        <div>
+          <div class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Critical Faults</div>
+          <div class="text-2xl font-bold text-roseDanger mt-1"><span id="stat-critical-count">0</span> <span class="text-xs text-slate-400 font-normal">Priority Triage</span></div>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-roseDanger">
+          <i data-lucide="flame" class="w-5 h-5"></i>
+        </div>
+      </div>
+      <div class="bg-cardBg border border-cardBorder p-4 rounded-xl flex items-center justify-between">
+        <div>
+          <div class="text-xs font-semibold tracking-wider text-slate-400 uppercase">AI Precision Rate</div>
+          <div class="text-2xl font-bold text-emeraldSuccess mt-1"><span id="stat-accuracy-rate">96.5%</span> <span class="text-xs text-slate-400 font-normal">F1: 0.948</span></div>
+        </div>
+        <div class="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emeraldSuccess">
+          <i data-lucide="target" class="w-5 h-5"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- DYNAMIC TAB PANELS -->
+    <div class="flex-1 p-6 pt-2 overflow-y-auto custom-scrollbar">
+      
+      <!-- ======================================================= -->
+      <!-- TAB 1: GEO MAP                                          -->
+      <!-- ======================================================= -->
+      <div id="view-map" class="tab-content active h-full space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full min-h-[480px]">
+          
+          <!-- Left 2 Cols: Leaflet & Plotly Map -->
+          <div class="lg:col-span-2 bg-cardBg border border-cardBorder rounded-xl overflow-hidden flex flex-col">
+            <div class="p-3 px-4 border-b border-cardBorder flex flex-wrap items-center justify-between gap-2 text-xs">
+              <div class="flex items-center space-x-2">
+                <span class="font-semibold text-slate-200">🇮🇳 Pan-India AWS Topology & Regional Clusters</span>
+                <span class="text-[11px] text-slate-400">(16 Stations • IDW Spatial Consensus)</span>
+              </div>
+              
+              <div class="flex items-center space-x-3">
+                <!-- Map Engine Toggle -->
+                <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs">
+                  <button id="btn-map-leaflet" class="px-2.5 py-1 rounded font-bold bg-blue-600 text-white transition cursor-pointer">
+                    🗺️ Leaflet Live
+                  </button>
+                  <button id="btn-map-plotly" class="px-2.5 py-1 rounded font-bold text-slate-400 hover:text-white transition cursor-pointer">
+                    📊 Plotly OpenStreetMap
+                  </button>
+                </div>
+
+                <div class="hidden sm:flex items-center space-x-3">
+                  <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-emeraldSuccess mr-1.5"></span>Normal</span>
+                  <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-amberWarning mr-1.5"></span>Degraded</span>
+                  <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-roseDanger mr-1.5"></span>Critical</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Leaflet Container -->
+            <div id="map-container" class="flex-1 w-full min-h-[460px] bg-slate-950"></div>
+            <!-- Plotly Container -->
+            <div id="plotly-map-container" class="flex-1 w-full min-h-[460px] bg-slate-950 hidden"></div>
+          </div>
+          
+          <!-- Right Col: Selected Station Detail Card & Defense Architecture -->
+          <div class="space-y-4 flex flex-col justify-between">
+            <div id="selected-station-card">
+              <div class="bg-cardBg border border-cardBorder p-5 rounded-xl text-center text-slate-500 text-xs">
+                Select an AWS station from the map to inspect live sensor telemetry and health score.
+              </div>
+            </div>
+
+            <div class="bg-cardBg border border-cardBorder rounded-xl p-4">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Multi-Tier Defense Architecture</h3>
+              <div class="space-y-2 text-xs">
+                <div class="p-2.5 bg-slate-900/80 border border-slate-800 rounded-lg">
+                  <div class="flex justify-between font-semibold text-amberWarning">
+                    <span>Tier 1: WMO-No.8 Physical Rules</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10">Deterministic</span>
+                  </div>
+                  <p class="text-slate-400 mt-0.5 text-[11px]">Step rate-of-change, flatline checks, and absolute physical boundaries.</p>
+                </div>
+                <div class="p-2.5 bg-slate-900/80 border border-slate-800 rounded-lg">
+                  <div class="flex justify-between font-semibold text-cyan-400">
+                    <span>Tier 2: Thermodynamic Models</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10">Physics-Informed</span>
+                  </div>
+                  <p class="text-slate-400 mt-0.5 text-[11px]">Magnus-Tetens dew point check & solar zenith radiation gating.</p>
+                </div>
+                <div class="p-2.5 bg-slate-900/80 border border-slate-800 rounded-lg">
+                  <div class="flex justify-between font-semibold text-purple-400">
+                    <span>Tier 3: Pure-NumPy Isolation Forest</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10">Unsupervised ML</span>
+                  </div>
+                  <p class="text-slate-400 mt-0.5 text-[11px]">Multivariate Mahalanobis distances and rolling adaptive Z-scores.</p>
+                </div>
+                <div class="p-2.5 bg-slate-900/80 border border-slate-800 rounded-lg">
+                  <div class="flex justify-between font-semibold text-emeraldSuccess">
+                    <span>Tier 4: Spatial IDW Interpolation</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10">Geospatial</span>
+                  </div>
+                  <p class="text-slate-400 mt-0.5 text-[11px]">Cross-station regional consistency with altitude lapse rate correction.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- TAB 2: TIME SERIES INSPECTOR                            -->
+      <!-- ======================================================= -->
+      <div id="view-charts" class="tab-content">
+        <div class="bg-cardBg border border-cardBorder rounded-xl p-6 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <label class="text-xs text-slate-400 block mb-1">Target Station Node</label>
+              <select id="chart-station-select" class="bg-slate-900 border border-slate-700 text-sm text-slate-200 rounded-lg px-3 py-2 outline-none focus:border-cyan-500">
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+            <!-- Sensor Channel Buttons -->
+            <div class="flex flex-wrap gap-2 text-xs">
+              <button class="channel-btn active px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium border border-blue-500 cursor-pointer" data-channel="temperature_c">Air Temp (°C)</button>
+              <button class="channel-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 cursor-pointer" data-channel="humidity_pct">Relative Humidity (%)</button>
+              <button class="channel-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 cursor-pointer" data-channel="pressure_hpa">Pressure (hPa)</button>
+              <button class="channel-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 cursor-pointer" data-channel="wind_speed_ms">Wind Speed (m/s)</button>
+              <button class="channel-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 cursor-pointer" data-channel="solar_radiation_wm2">Solar Radiation (W/m²)</button>
+            </div>
+          </div>
+
+          <div class="h-80 w-full">
+            <canvas id="telemetryChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- TAB 3: ALERT FEED & TRIAGE                              -->
+      <!-- ======================================================= -->
+      <div id="view-alerts" class="tab-content space-y-4">
+        <!-- Filter Controls Bar -->
+        <div class="bg-cardBg border border-cardBorder p-4 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div class="flex flex-wrap items-center gap-3">
+            <div>
+              <label class="text-slate-400 block mb-1">Filter Station</label>
+              <select id="filter-station" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200">
+                <option value="">All Stations</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-slate-400 block mb-1">Severity</label>
+              <select id="filter-severity" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200">
+                <option value="">All Severities</option>
+                <option value="CRITICAL">Critical</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-slate-400 block mb-1">Status</label>
+              <select id="filter-status" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200">
+                <option value="">All Statuses</option>
+                <option value="DETECTED">Detected (Open)</option>
+                <option value="ACKNOWLEDGED">Acknowledged</option>
+                <option value="RESOLVED">Resolved</option>
+                <option value="FALSE_POSITIVE">False Positive</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-slate-400 block mb-1">Anomaly Type</label>
+              <select id="filter-type" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200">
+                <option value="">All Anomaly Types</option>
+                <option value="SPIKE">⚡ Instantaneous Spike (Surge)</option>
+                <option value="SENSOR_DRIFT">📉 Progressive Sensor Drift</option>
+                <option value="FROZEN_SENSOR">❄️ Flatline Freeze</option>
+                <option value="CROSS_SENSOR_INCONSISTENCY">🔄 Magnus Dew Point Violation (Td > T)</option>
+                <option value="WMO_RANGE_VIOLATION">🚫 WMO Range Physical Limit</option>
+                <option value="RATE_OF_CHANGE">📈 Dynamic Step Rate of Change</option>
+                <option value="MULTIVARIATE_OUTLIER">🧠 Isolation Forest Multi-Sensor</option>
+                <option value="SPATIAL_DISCREPANCY">🌐 Spatial Consensus Outlier</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button id="btn-reset-anomalies" onclick="window.app.resetActiveAnomalies()" class="flex items-center space-x-1.5 px-3.5 py-1.5 bg-rose-600/90 hover:bg-rose-500 text-white rounded-lg font-semibold cursor-pointer shadow transition" title="Reset all active anomalies to zero and restore station health to 100%">
+              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+              <span>Reset Active Anomalies (Zero)</span>
+            </button>
+            <button onclick="window.app.loadAlertsFeed()" class="flex items-center space-x-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold cursor-pointer shadow transition">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>Refresh Alerts</span>
+            </button>
+          </div>
+        </div>
+
+
+
+
+
+        <!-- Alert Feed Dynamic Cards List -->
+        <div id="alerts-feed-list" class="space-y-3">
+          <!-- Dynamically populated with clean key-value grid alert cards -->
+        </div>
+      </div>
+
+      <!-- ======================================================= -->
+      <!-- TAB 4: FAULT INJECTION STUDIO                           -->
+      <!-- ======================================================= -->
+      <div id="view-simulator" class="tab-content">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-2 bg-cardBg border border-cardBorder p-6 rounded-xl space-y-4">
+            <h3 class="text-sm font-bold text-white mb-2 flex items-center space-x-2">
+              <i data-lucide="zap" class="w-4 h-4 text-amberWarning"></i>
+              <span>Interactive Sensor Fault Injector & Anomaly Generator</span>
+            </h3>
+
+            <form id="fault-inject-form" class="space-y-4">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label class="text-slate-400 block mb-1">Target Station Node</label>
+                  <select id="sim-station-select" class="w-full bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-slate-200">
+                    <!-- Dynamically populated -->
+                  </select>
+                </div>
+                <div>
+                  <label class="text-slate-400 block mb-1">Anomaly Taxonomy Type</label>
+                  <select id="fault-type-select" class="w-full bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-slate-200">
+                    <option value="SPIKE">⚡ Instantaneous Spike (ADC Glitch / Surge)</option>
+                    <option value="SENSOR_DRIFT">📉 Progressive Sensor Drift (Calibration Loss)</option>
+                    <option value="FROZEN_SENSOR">❄️ Flatline Freeze (Mechanical Bearing Stall)</option>
+                    <option value="CROSS_SENSOR_INCONSISTENCY">🔄 Magnus Dew-Point Contradiction (Td > T)</option>
+                    <option value="WMO_RANGE_VIOLATION">🚫 WMO Range Physical Limit Violation</option>
+                  </select>
+                </div>
+                <div class="md:col-span-2">
+                  <label class="text-slate-400 block mb-1">Target Sensor Channel</label>
+                  <select id="fault-sensor-select" class="w-full bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-slate-200">
+                    <option value="temperature_c">Air Temperature (°C)</option>
+                    <option value="humidity_pct">Relative Humidity (%)</option>
+                    <option value="pressure_hpa">Atmospheric Pressure (hPa)</option>
+                    <option value="wind_speed_ms">Wind Speed (m/s)</option>
+                    <option value="solar_radiation_wm2">Solar Radiation (W/m²)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- SLIDER BAR 1: FAULT MAGNITUDE / OFFSET -->
+              <div class="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl space-y-2 text-xs">
+                <div class="flex justify-between items-center">
+                  <label class="text-slate-300 font-semibold flex items-center space-x-1.5">
+                    <i data-lucide="sliders" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    <span>Slide Bar: Injected Fault Magnitude / Value Offset</span>
+                  </label>
+                  <span id="slider-mag-val" class="text-cyan-400 font-mono font-bold text-sm bg-cyan-950/60 px-2.5 py-0.5 rounded border border-cyan-800/40">+25.0</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                  <input type="range" id="fault-magnitude-slider" min="-50" max="100" step="0.5" value="25.0" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                  <input type="number" id="fault-magnitude-input" value="25.0" step="0.5" class="w-24 bg-slate-950 border border-slate-700 p-2 rounded-lg text-slate-200 text-center font-mono font-bold">
+                </div>
+              </div>
+
+              <!-- SLIDER BAR 2: FAULT DURATION -->
+              <div class="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl space-y-2 text-xs">
+                <div class="flex justify-between items-center">
+                  <label class="text-slate-300 font-semibold flex items-center space-x-1.5">
+                    <i data-lucide="timer" class="w-3.5 h-3.5 text-amber-400"></i>
+                    <span>Slide Bar: Fault Duration (Timesteps)</span>
+                  </label>
+                  <span id="slider-dur-val" class="text-amber-400 font-mono font-bold text-sm bg-amber-950/60 px-2.5 py-0.5 rounded border border-amber-800/40">5 steps (75 mins)</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                  <input type="range" id="fault-duration-slider" min="1" max="20" step="1" value="5" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-400">
+                  <input type="number" id="fault-duration-input" value="5" min="1" max="20" class="w-24 bg-slate-950 border border-slate-700 p-2 rounded-lg text-slate-200 text-center font-mono font-bold">
+                </div>
+              </div>
+
+              <!-- LIVE FAULTY VALUE CALCULATION BANNER -->
+              <div id="fault-live-preview" class="p-3.5 bg-slate-950 border border-slate-800 rounded-xl text-xs flex flex-wrap items-center justify-between gap-2 shadow-inner">
+                <div class="flex items-center space-x-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                  <span class="text-slate-400">Faulty Telemetry Value:</span>
+                  <span id="preview-fault-calc" class="font-mono text-rose-400 font-bold">53.50 °C (Spike Exceedance)</span>
+                </div>
+                <span class="px-2.5 py-0.5 rounded text-[10px] font-mono bg-rose-950/80 text-rose-300 border border-rose-800/60 font-bold uppercase tracking-wider">AI Detection Armed</span>
+              </div>
+
+              <div class="flex items-center space-x-3 pt-2">
+                <button type="submit" class="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-lg shadow-cyan-500/25 transition cursor-pointer flex items-center justify-center space-x-2">
+                  <i data-lucide="zap" class="w-4 h-4 fill-current"></i>
+                  <span>Inject Fault & Trigger AI Pipeline</span>
+                </button>
+                <button type="button" id="btn-clear-faults" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-lg border border-slate-700 cursor-pointer transition flex items-center space-x-1.5">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  <span>Clear Faults</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="bg-cardBg border border-cardBorder p-6 rounded-xl space-y-4">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Pre-Built Benchmark Scenarios</h3>
+            <div class="space-y-3 text-xs">
+              <div onclick="window.app.triggerBenchmark('SPIKE', 'temperature_c', 22.0, 4)" class="p-3.5 bg-slate-900 border border-slate-800 rounded-lg hover:border-cyan-500 cursor-pointer transition group">
+                <div class="font-bold text-roseDanger group-hover:text-rose-300">1. Lightning Voltage Surge (+22°C)</div>
+                <p class="text-slate-400 mt-1 text-[11px]">Injects +22°C transient step surge to test Tier 1 dynamic rate-of-change and WMO exceedance.</p>
+              </div>
+              <div onclick="window.app.triggerBenchmark('SENSOR_DRIFT', 'humidity_pct', 25.0, 6)" class="p-3.5 bg-slate-900 border border-slate-800 rounded-lg hover:border-cyan-500 cursor-pointer transition group">
+                <div class="font-bold text-amberWarning group-hover:text-amber-300">2. Capacitive Hygrometer Drift (+25% RH)</div>
+                <p class="text-slate-400 mt-1 text-[11px]">Simulates polymer aging with progressive linear drift and Magnus dew-point contradiction ($T_d > T$).</p>
+              </div>
+              <div onclick="window.app.triggerBenchmark('FROZEN_SENSOR', 'wind_speed_ms', 0.0, 8)" class="p-3.5 bg-slate-900 border border-slate-800 rounded-lg hover:border-cyan-500 cursor-pointer transition group">
+                <div class="font-bold text-cyan-400 group-hover:text-cyan-300">3. Anemometer Bearing Stall (0.0 m/s Freeze)</div>
+                <p class="text-slate-400 mt-1 text-[11px]">Locks wind speed telemetry to zero-variance flatline under active thermal gradient.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- ======================================================= -->
+      <!-- TAB 5: AI MODEL HEALTH & XAI                            -->
+      <!-- ======================================================= -->
+      <div id="view-models" class="tab-content space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Confusion Matrix Card -->
+          <div class="bg-cardBg border border-cardBorder p-5 rounded-xl space-y-4">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Confusion Matrix & Performance</h4>
+            <div class="grid grid-cols-2 gap-3 text-center mb-3">
+              <div class="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                <div id="cm-tp" class="text-xl font-bold text-emeraldSuccess">384</div>
+                <div class="text-[10px] text-slate-400 uppercase mt-0.5">True Positives</div>
+              </div>
+              <div class="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-lg">
+                <div id="cm-fp" class="text-xl font-bold text-roseDanger">14</div>
+                <div class="text-[10px] text-slate-400 uppercase mt-0.5">False Positives</div>
+              </div>
+              <div class="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <div id="cm-fn" class="text-xl font-bold text-amberWarning">28</div>
+                <div class="text-[10px] text-slate-400 uppercase mt-0.5">False Negatives</div>
+              </div>
+              <div class="p-3.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <div id="cm-tn" class="text-xl font-bold text-blue-400">8,420</div>
+                <div class="text-[10px] text-slate-400 uppercase mt-0.5">True Negatives</div>
+              </div>
+            </div>
+
+
+            <div class="p-3 bg-slate-900/80 rounded-lg border border-slate-800 space-y-1.5 text-xs">
+              <div class="flex justify-between"><span class="text-slate-400">Precision:</span><strong id="cm-prec" class="text-emerald-400 font-mono">96.5%</strong></div>
+              <div class="flex justify-between"><span class="text-slate-400">Recall / Sensitivity:</span><strong id="cm-rec" class="text-cyan-400 font-mono">93.2%</strong></div>
+              <div class="flex justify-between"><span class="text-slate-400">Composite F1 Score:</span><strong id="cm-f1" class="text-white font-mono">0.948</strong></div>
+              <div class="flex justify-between"><span class="text-slate-400">ROC-AUC Score:</span><strong class="text-purple-400 font-mono">0.978</strong></div>
+            </div>
+          </div>
+
+          <!-- Feature Importance Card -->
+          <div class="lg:col-span-2 bg-cardBg border border-cardBorder p-5 rounded-xl space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">XAI Feature Importance Ranking</h4>
+                <p class="text-xs text-slate-400 mt-0.5">Contribution weights across sensor dimensions (Turbo Gradient Scale).</p>
+              </div>
+              <span class="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-mono">Plotly Express</span>
+            </div>
+
+            <div id="plotly-feature-importance-chart" class="w-full h-[280px]"></div>
+
+            <div id="model-feature-importance" class="pt-1 border-t border-slate-800/80">
+              <!-- Dynamically populated list -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Plotly 3D Feature Space Visualization -->
+        <div class="bg-cardBg border border-cardBorder p-5 rounded-xl space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <h4 class="text-sm font-bold text-white">📊 Plotly 3D Multivariate Feature Space & Anomaly Clustering</h4>
+              <p class="text-xs text-slate-400">Interactive 3D visualization ($\text{Air Temp} \times \text{Relative Humidity} \times \text{Atmospheric Pressure}$) with AI-flagged anomaly clusters.</p>
+            </div>
+            <button onclick="window.app.loadPlotly3dScatter()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold cursor-pointer shadow transition">
+              🔄 Refresh 3D Space
+            </button>
+          </div>
+          
+          <div id="plotly-3d-container" class="w-full h-[480px] rounded-lg overflow-hidden border border-slate-800 bg-[#090d16]"></div>
+        </div>
+
+        <!-- Latency Stack Profile -->
+        <div class="bg-cardBg border border-cardBorder p-5 rounded-xl space-y-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Multi-Tier Defense Latency Stack</h4>
+          <div id="algorithm-stack-list">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-notification" class="fixed bottom-6 right-6 px-4 py-3 rounded-xl shadow-2xl z-50 text-sm font-semibold border transition-all duration-300 transform translate-y-4 opacity-0 pointer-events-none">
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/map.js"></script>
+  <script src="/static/js/charts.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

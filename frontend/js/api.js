@@ -263,10 +263,48 @@ const API = {
         created = 1;
         stn.status = "CRITICAL";
         stn.health_score = 64.0;
+      } else {
+        // Natural live stream background anomaly generation (~35% chance per step)
+        if (Math.random() < 0.35) {
+          const randomStn = this._mockData.stations[Math.floor(Math.random() * this._mockData.stations.length)];
+          const sampleFaults = [
+            { sensor: 'temperature_c', type: 'SPIKE', mag: +(Math.random() * 8 + 18).toFixed(1), unit: '°C', base: 28.5, model: 'Tier-1:Dynamic-StepLimit', drift: 'Transient Step Jump', cause: 'THERMAL_SURGE_OR_ADC_GLITCH' },
+            { sensor: 'humidity_pct', type: 'SENSOR_DRIFT', mag: +(Math.random() * 15 + 20).toFixed(1), unit: '%', base: 55.0, model: 'Tier-2:Magnus-DewPoint', drift: 'Progressive Drift', cause: 'CAPACITIVE_POLYMER_DEGRADATION' },
+            { sensor: 'wind_speed_ms', type: 'FROZEN_SENSOR', mag: 0.0, unit: 'm/s', base: 4.5, model: 'Tier-1:ZeroVariance-Flatline', drift: 'Constant Flatline', cause: 'ANEMOMETER_BEARING_STALL' },
+            { sensor: 'dew_point_c', type: 'CROSS_SENSOR_INCONSISTENCY', mag: 6.5, unit: '°C', base: 22.0, model: 'Tier-2:Magnus-Inconsistency', drift: 'Thermodynamic Inconsistency (Td > T)', cause: 'PSYCHROMETRIC_VIOLATION' }
+          ];
+          const chosen = sampleFaults[Math.floor(Math.random() * sampleFaults.length)];
+          const faultyVal = chosen.type === 'FROZEN_SENSOR' ? '0.00' : (chosen.base + chosen.mag).toFixed(2);
+          this._mockData.anomalies.unshift({
+            id: Math.floor(Math.random() * 90000) + 10000,
+            station_id: randomStn.id,
+            station_code: randomStn.code,
+            station_name: randomStn.name,
+            timestamp: new Date().toISOString(),
+            sensor: chosen.sensor,
+            anomaly_type: chosen.type,
+            severity: chosen.mag > 20 || chosen.type === 'SPIKE' ? 'CRITICAL' : 'HIGH',
+            confidence_score: 0.94,
+            raw_value: parseFloat(faultyVal),
+            expected_range: `${chosen.base.toFixed(1)} ${chosen.unit}`,
+            ml_model: chosen.model,
+            explanation: `Live Stream AI Sentinel detected ${chosen.type} on ${chosen.sensor}.`,
+            status: "DETECTED",
+            drift: `${chosen.drift} (${faultyVal} ${chosen.unit})`,
+            slope: "Real-time Telemetry Vector",
+            root_cause: chosen.cause,
+            action: "Inspect and recalibrate sensor transducer element",
+            injected_value: `${faultyVal} ${chosen.unit}`
+          });
+          created = 1;
+          randomStn.status = chosen.type === 'SPIKE' ? 'CRITICAL' : 'DEGRADED';
+          randomStn.health_score = Math.max(30, randomStn.health_score - 15);
+        }
       }
       return { status: "STEP_ADVANCED", anomalies_detected: created };
     });
   },
+
 
   async clearFaults(stationId = null) {
     return this._fetchOrFallback(`${this.baseUrl}/api/simulate/clear`, {

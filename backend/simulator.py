@@ -407,10 +407,30 @@ class WeatherTelemetrySimulator:
                     reading["temperature_c"] -= 4.2
                     reading["humidity_pct"] = 96.0
 
-                # Keep fault if it still has steps remaining
-                if fault["remaining_steps"] > 0:
-                    retained_faults.append(fault)
-
             self.active_faults[stn_id] = retained_faults
 
+        elif getattr(self, 'enable_live_stream_anomalies', True):
+            # Dynamic realistic background anomaly generation during continuous live stream
+            # ~12% stochastic chance per station per step to simulate real-world sensor faults
+            if random.random() < 0.12:
+                anom_choice = random.choice([
+                    ("SPIKE", "temperature_c", round(random.uniform(18.0, 26.0), 1)),
+                    ("SENSOR_DRIFT", "humidity_pct", round(random.uniform(22.0, 35.0), 1)),
+                    ("FROZEN_SENSOR", "wind_speed_ms", 0.0),
+                    ("CROSS_SENSOR_INCONSISTENCY", "dew_point_c", round(reading["temperature_c"] + random.uniform(3.5, 7.5), 1)),
+                    ("RATE_OF_CHANGE", "pressure_hpa", - round(random.uniform(8.0, 14.0), 1))
+                ])
+                f_type, f_sensor, f_val = anom_choice
+                if f_type == "SPIKE":
+                    reading[f_sensor] += f_val
+                elif f_type == "SENSOR_DRIFT":
+                    reading[f_sensor] = min(99.5, reading[f_sensor] + f_val)
+                elif f_type == "FROZEN_SENSOR":
+                    reading[f_sensor] = 0.0
+                elif f_type == "CROSS_SENSOR_INCONSISTENCY":
+                    reading["dew_point_c"] = f_val
+                elif f_type == "RATE_OF_CHANGE":
+                    reading[f_sensor] += f_val
+
         return reading
+

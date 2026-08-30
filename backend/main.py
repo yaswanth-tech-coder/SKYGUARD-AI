@@ -930,6 +930,12 @@ FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__fi
 
 if os.path.exists(FRONTEND_DIR):
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
+    css_dir = os.path.join(FRONTEND_DIR, "css")
+    js_dir = os.path.join(FRONTEND_DIR, "js")
+    if os.path.exists(css_dir):
+        app.mount("/css", StaticFiles(directory=css_dir), name="css")
+    if os.path.exists(js_dir):
+        app.mount("/js", StaticFiles(directory=js_dir), name="js")
 
     @app.get("/")
     def serve_frontend_root():
@@ -937,4 +943,5 @@ if os.path.exists(FRONTEND_DIR):
         if os.path.exists(index_file):
             return FileResponse(index_file)
         return {"message": "Frontend index.html not found"}
+
 

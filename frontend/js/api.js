@@ -369,22 +369,45 @@ const API = {
   },
 
   async getModelMetrics() {
-    return this._fetchOrFallback(`${this.baseUrl}/api/models/metrics`, {}, () => ({
-      confusion_matrix: { true_positive: 384, false_positive: 14, false_negative: 28, true_negative: 8420, precision: 0.965, recall: 0.932, f1_score: 0.948 },
-      feature_importance: [
-        { feature: "Dew Point Depression (T - Td)", weight: 0.32, tier: "Tier-2: Thermodynamics" },
-        { feature: "Instantaneous Rate-of-Change", weight: 0.26, tier: "Tier-1: WMO-No.8" },
-        { feature: "Spatial IDW Consensus Deviation", weight: 0.21, tier: "Tier-4: Spatial" },
-        { feature: "Isolation Forest Anomaly Score", weight: 0.14, tier: "Tier-3: ML" },
-        { feature: "Nocturnal Solar Radiation Flux", weight: 0.07, tier: "Tier-2: Astronomical" }
-      ],
-      algorithm_stack: [
-        { name: "Tier-1: Physical Bounds & Rate-of-Change", type: "Physics Limit Rulebook", latency_ms: 0.04 },
-        { name: "Tier-2: Clausius-Clapeyron Thermodynamics", type: "Psychrometric Invariant", latency_ms: 0.08 },
-        { name: "Tier-3: Pure-NumPy Isolation Forest", type: "Unsupervised Multivariate Ensemble", latency_ms: 0.28 },
-        { name: "Tier-4: Spatial Inverse Distance Weighting", type: "Regional Neighborhood Consensus", latency_ms: 0.42 }
-      ]
-    }));
+    return this._fetchOrFallback(`${this.baseUrl}/api/models/metrics`, {}, () => {
+      const activeAnoms = this._mockData.anomalies.filter(a => a.status === 'DETECTED').length;
+      const totalAnoms = this._mockData.anomalies.length;
+      const tp = 384 + (totalAnoms * 4) + (activeAnoms * 3);
+      const fp = 14;
+      const fn = 28;
+      const tn = 8420 + (totalAnoms * 25);
+
+      const precision = parseFloat((tp / (tp + fp)).toFixed(4));
+      const recall = parseFloat((tp / (tp + fn)).toFixed(4));
+      const f1 = parseFloat((2 * (precision * recall) / (precision + recall)).toFixed(4));
+      const rocAuc = parseFloat(Math.min(0.999, Math.max(0.920, 0.978 + (f1 - 0.948) * 0.15)).toFixed(4));
+
+      return {
+        confusion_matrix: {
+          true_positive: tp,
+          false_positive: fp,
+          false_negative: fn,
+          true_negative: tn,
+          precision: precision,
+          recall: recall,
+          f1_score: f1,
+          roc_auc: rocAuc
+        },
+        feature_importance: [
+          { feature: "Dew Point Depression (T - Td)", weight: 0.32, tier: "Tier-2: Thermodynamics" },
+          { feature: "Instantaneous Rate-of-Change", weight: 0.26, tier: "Tier-1: WMO-No.8" },
+          { feature: "Spatial IDW Consensus Deviation", weight: 0.21, tier: "Tier-4: Spatial" },
+          { feature: "Isolation Forest Anomaly Score", weight: 0.14, tier: "Tier-3: ML" },
+          { feature: "Nocturnal Solar Radiation Flux", weight: 0.07, tier: "Tier-2: Astronomical" }
+        ],
+        algorithm_stack: [
+          { name: "Tier-1: Physical Bounds & Rate-of-Change", type: "Physics Limit Rulebook", latency_ms: 0.04 },
+          { name: "Tier-2: Clausius-Clapeyron Thermodynamics", type: "Psychrometric Invariant", latency_ms: 0.08 },
+          { name: "Tier-3: Pure-NumPy Isolation Forest", type: "Unsupervised Multivariate Ensemble", latency_ms: 0.28 },
+          { name: "Tier-4: Spatial Inverse Distance Weighting", type: "Regional Neighborhood Consensus", latency_ms: 0.42 }
+        ]
+      };
+    });
   },
 
   async getPlotlyMap() {
@@ -409,25 +432,52 @@ const API = {
   },
 
   async getPlotly3dScatter() {
-    return this._fetchOrFallback(`${this.baseUrl}/api/analytics/plotly-3d-scatter`, {}, () => ({
-      data: [{
-        type: "scatter3d",
-        mode: "markers",
-        x: [24, 28, 31, 22, 53.5, 30, 26],
-        y: [55, 60, 45, 80, 88.5, 50, 65],
-        z: [1013, 1012, 1010, 1015, 950, 1014, 1011],
-        marker: { size: 5, color: ["#06b6d4", "#06b6d4", "#06b6d4", "#06b6d4", "#ef4444", "#06b6d4", "#06b6d4"] }
-      }],
-      layout: {
-        scene: {
-          xaxis: { title: "Air Temp (°C)" },
-          yaxis: { title: "Humidity (%)" },
-          zaxis: { title: "Pressure (hPa)" }
-        },
-        margin: { l: 0, r: 0, t: 0, b: 0 }
-      }
-    }));
+    return this._fetchOrFallback(`${this.baseUrl}/api/analytics/plotly-3d-scatter`, {}, () => {
+      this._syncStationLiveReadings();
+      const xVals = [];
+      const yVals = [];
+      const zVals = [];
+      const colors = [];
+      const names = [];
+
+      this._mockData.stations.forEach(stn => {
+        const r = stn.latest_reading || {};
+        xVals.push(r.temperature_c ?? 28.5);
+        yVals.push(r.humidity_pct ?? 55.0);
+        zVals.push(r.pressure_hpa ?? 1013.25);
+        const isAnom = stn.status === 'CRITICAL' || (stn.active_anomalies_count && stn.active_anomalies_count > 0);
+        colors.push(isAnom ? "#f43f5e" : "#06b6d4");
+        names.push(`${stn.name} (${stn.code}) - ${isAnom ? 'ANOMALY DETECTED' : 'NORMAL'}`);
+      });
+
+      return {
+        data: [{
+          type: "scatter3d",
+          mode: "markers",
+          x: xVals,
+          y: yVals,
+          z: zVals,
+          text: names,
+          hoverinfo: "text+x+y+z",
+          marker: {
+            size: 6,
+            color: colors,
+            opacity: 0.9,
+            line: { color: colors, width: 1 }
+          }
+        }],
+        layout: {
+          scene: {
+            xaxis: { title: "Air Temp (°C)" },
+            yaxis: { title: "Humidity (%)" },
+            zaxis: { title: "Pressure (hPa)" }
+          },
+          margin: { l: 0, r: 0, t: 0, b: 0 }
+        }
+      };
+    });
   },
+
 
   async getPlotlyFeatureImportance() {
     return this._fetchOrFallback(`${this.baseUrl}/api/analytics/plotly-feature-importance`, {}, () => ({

@@ -134,10 +134,21 @@ class WeatherApp {
       this.loadPlotlyMap();
     }
 
+    // Refresh 3D Scatter & Model Metrics for active theme
+    const container3d = document.getElementById('plotly-3d-container');
+    if (container3d) {
+      this.loadPlotly3dScatter();
+    }
+    const featContainer = document.getElementById('plotly-feature-importance-chart');
+    if (featContainer) {
+      this.loadModelMetrics();
+    }
+
     if (window.lucide) {
       window.lucide.createIcons();
     }
   }
+
 
 
 
@@ -1135,10 +1146,11 @@ class WeatherApp {
         setVal('cm-tp', cm.true_positive);
         setVal('cm-fp', cm.false_positive);
         setVal('cm-fn', cm.false_negative);
-        setVal('cm-tn', cm.true_negative);
-        setVal('cm-prec', `${Math.round(cm.precision * 1000) / 10}%`);
-        setVal('cm-rec', `${Math.round(cm.recall * 1000) / 10}%`);
-        setVal('cm-f1', `${cm.f1_score}`);
+        setVal('cm-tn', typeof cm.true_negative === 'number' ? cm.true_negative.toLocaleString() : cm.true_negative);
+        setVal('cm-prec', `${(cm.precision * 100).toFixed(1)}%`);
+        setVal('cm-rec', `${(cm.recall * 100).toFixed(1)}%`);
+        setVal('cm-f1', `${typeof cm.f1_score === 'number' ? cm.f1_score.toFixed(3) : cm.f1_score}`);
+        setVal('cm-roc', `${typeof cm.roc_auc === 'number' ? cm.roc_auc.toFixed(3) : (cm.roc_auc || '0.978')}`);
       }
 
       // Render Plotly Horizontal Bar Chart with Turbo Gradient
@@ -1146,11 +1158,13 @@ class WeatherApp {
       if (featChartContainer) {
         try {
           if (typeof Plotly !== 'undefined') {
+            const isLight = document.body.classList.contains('light');
             const figFeat = await API.getPlotlyFeatureImportance();
+            figFeat.layout = figFeat.layout || {};
             figFeat.layout.autosize = true;
             figFeat.layout.paper_bgcolor = 'rgba(0,0,0,0)';
             figFeat.layout.plot_bgcolor = 'rgba(0,0,0,0)';
-            figFeat.layout.font = { color: '#f8fafc', family: 'Inter, sans-serif' };
+            figFeat.layout.font = { color: isLight ? '#0f172a' : '#f8fafc', family: 'Inter, sans-serif' };
 
             await Plotly.react(featChartContainer, figFeat.data, figFeat.layout, {
               responsive: true,
@@ -1218,7 +1232,6 @@ class WeatherApp {
       fig.layout.margin = { r: 0, t: 0, l: 0, b: 0 };
       fig.layout.font = { color: isLight ? '#0f172a' : '#f1f5f9', family: 'Inter, sans-serif' };
 
-
       Plotly.react(plotlyContainer, fig.data, fig.layout, {
         responsive: true,
         displayModeBar: true,
@@ -1253,17 +1266,50 @@ class WeatherApp {
       if (!container3d || typeof Plotly === 'undefined') return;
 
       const fig = await API.getPlotly3dScatter();
-      if (!fig.data || fig.data.length === 0) return;
+      if (!fig || !fig.data || fig.data.length === 0) return;
 
-      Plotly.react(container3d, fig.data, fig.layout, {
+      const isLight = document.body.classList.contains('light');
+      
+      fig.layout = fig.layout || {};
+      fig.layout.autosize = true;
+      fig.layout.paper_bgcolor = isLight ? '#ffffff' : '#0f172a';
+      fig.layout.plot_bgcolor = isLight ? '#ffffff' : '#0f172a';
+      fig.layout.font = { color: isLight ? '#0f172a' : '#f1f5f9', family: 'Inter, sans-serif' };
+      fig.layout.margin = { r: 0, t: 30, l: 0, b: 0 };
+
+      const sceneBg = isLight ? '#f8fafc' : '#0a0f1d';
+      const planeColor = isLight ? '#ffffff' : '#111827';
+      const gridColor = isLight ? '#cbd5e1' : '#1e293b';
+      const axisColor = isLight ? '#475569' : '#94a3b8';
+
+      fig.layout.scene = fig.layout.scene || {};
+      fig.layout.scene.bgcolor = sceneBg;
+
+      ['xaxis', 'yaxis', 'zaxis'].forEach(ax => {
+        fig.layout.scene[ax] = fig.layout.scene[ax] || {};
+        fig.layout.scene[ax].backgroundcolor = planeColor;
+        fig.layout.scene[ax].gridcolor = gridColor;
+        fig.layout.scene[ax].color = axisColor;
+        fig.layout.scene[ax].tickfont = { color: axisColor };
+        fig.layout.scene[ax].titlefont = { color: axisColor };
+      });
+
+      await Plotly.react(container3d, fig.data, fig.layout, {
         responsive: true,
         displayModeBar: true,
         displaylogo: false
       });
+
+      setTimeout(() => {
+        if (typeof Plotly !== 'undefined' && container3d) {
+          Plotly.Plots.resize(container3d);
+        }
+      }, 100);
     } catch (err) {
       console.error('Error loading Plotly 3D scatter:', err);
     }
   }
+
 
   showToast(message, color = 'blue') {
     const toast = document.getElementById('toast-notification');

@@ -507,8 +507,67 @@ body.light #toast-notification.bg-slate-900 {
   color: #0369a1 !important;
   border-color: #bae6fd !important;
 }
+/* Fault Injection Lab Styles */
+.fault-type-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
+.fault-type-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(6, 182, 212, 0.6) !important;
+}
 
+.fault-type-card.active {
+  border-color: rgba(6, 182, 212, 0.9) !important;
+  background: rgba(8, 47, 73, 0.4) !important;
+  box-shadow: 0 4px 14px -2px rgba(6, 182, 212, 0.15);
+}
 
+.sensor-pill-btn, .severity-pill-btn {
+  transition: all 0.15s ease-in-out;
+}
 
+.sensor-pill-btn:hover, .severity-pill-btn:hover {
+  transform: translateY(-1px);
+}
 
+/* Light Mode Overrides for Fault Injection Lab */
+body.light .fault-type-card {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.light .fault-type-card .font-bold {
+  color: #1e293b !important;
+}
+
+body.light .fault-type-card p {
+  color: #64748b !important;
+}
+
+body.light .fault-type-card.active {
+  border-color: #0284c7 !important;
+  background: #f0f9ff !important;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.12) !important;
+}
+
+body.light .fault-type-card.active .font-bold {
+  color: #0284c7 !important;
+}
+
+body.light .sensor-pill-btn, body.light .severity-pill-btn {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+body.light .sensor-pill-btn.active, body.light .severity-pill-btn.active {
+  background-color: #e0f2fe !important;
+  border-color: #0284c7 !important;
+  color: #0369a1 !important;
+}
+
+body.light #recent-injections-list > div {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}

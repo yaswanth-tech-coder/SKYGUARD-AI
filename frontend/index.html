@@ -99,17 +99,32 @@
       </nav>
     </div>
 
-    <!-- Simulation Clock Footer -->
-    <div class="p-4 border-t border-cardBorder bg-slate-950/40">
-      <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
-        <span>Sim Clock</span>
-        <span class="text-emeraldSuccess font-mono flex items-center"><span class="w-2 h-2 rounded-full bg-emeraldSuccess animate-pulse mr-1.5"></span>Live UTC</span>
+    <!-- Sidebar Metrics & Simulation Clock Footer -->
+    <div class="p-3.5 border-t border-cardBorder bg-slate-950/60 space-y-2.5 text-xs">
+      <div class="space-y-1 text-[11px] font-mono">
+        <div class="flex justify-between items-center text-slate-400">
+          <span>Inference Latency:</span>
+          <span class="text-emerald-400 font-bold">2.1 ms</span>
+        </div>
+        <div class="flex justify-between items-center text-slate-400">
+          <span>Throughput:</span>
+          <span class="text-cyan-400 font-bold">12.8 rps</span>
+        </div>
+        <div class="flex justify-between items-center text-slate-400">
+          <span>Network Status:</span>
+          <span id="sidebar-net-status" class="text-emerald-400 font-semibold flex items-center">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span>Live UTC
+          </span>
+        </div>
       </div>
-      <div id="sim-clock-display" class="text-xs font-mono text-cyan-300 font-bold bg-cardBg px-3 py-2 rounded border border-cardBorder text-center">
-        Live UTC
-      </div>
+
+      <button type="button" onclick="window.app.toggleTheme()" class="w-full py-1.5 px-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1.5 transition cursor-pointer" id="sidebar-theme-toggle-btn">
+        <i data-lucide="sun" class="w-3.5 h-3.5 text-amber-400"></i>
+        <span id="sidebar-theme-label">Switch to Light</span>
+      </button>
     </div>
   </aside>
+
 
   <!-- ========================================================= -->
   <!-- MAIN VIEW CONTAINER                                       -->
@@ -378,118 +393,258 @@
       </div>
 
       <!-- ======================================================= -->
-      <!-- TAB 4: FAULT INJECTION STUDIO                           -->
+      <!-- TAB 4: SYNTHETIC METEOROLOGICAL FAULT INJECTION LAB     -->
       <!-- ======================================================= -->
-      <div id="view-simulator" class="tab-content">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div class="lg:col-span-2 bg-cardBg border border-cardBorder p-6 rounded-xl space-y-4">
-            <h3 class="text-sm font-bold text-white mb-2 flex items-center space-x-2">
-              <i data-lucide="zap" class="w-4 h-4 text-amberWarning"></i>
-              <span>Interactive Sensor Fault Injector & Anomaly Generator</span>
-            </h3>
-
-            <form id="fault-inject-form" class="space-y-4">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <label class="text-slate-400 block mb-1">Target Station Node</label>
-                  <select id="sim-station-select" class="w-full bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-slate-200">
-                    <!-- Dynamically populated -->
-                  </select>
-                </div>
-                <div>
-                  <label class="text-slate-400 block mb-1">Anomaly Taxonomy Type</label>
-                  <select id="fault-type-select" class="w-full bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-slate-200">
-                    <option value="SPIKE">⚡ Instantaneous Spike (ADC Glitch / Surge)</option>
-                    <option value="SENSOR_DRIFT">📉 Progressive Sensor Drift (Calibration Loss)</option>
-                    <option value="FROZEN_SENSOR">❄️ Flatline Freeze (Mechanical Bearing Stall)</option>
-                    <option value="CROSS_SENSOR_INCONSISTENCY">🔄 Magnus Dew-Point Contradiction (Td > T)</option>
-                    <option value="WMO_RANGE_VIOLATION">🚫 WMO Range Physical Limit Violation</option>
-                  </select>
-                </div>
-                <div class="md:col-span-2">
-                  <label class="text-slate-400 block mb-1">Target Sensor Channel</label>
-                  <select id="fault-sensor-select" class="w-full bg-slate-900 border border-slate-700 p-2.5 rounded-lg text-slate-200">
-                    <option value="temperature_c">Air Temperature (°C)</option>
-                    <option value="humidity_pct">Relative Humidity (%)</option>
-                    <option value="pressure_hpa">Atmospheric Pressure (hPa)</option>
-                    <option value="wind_speed_ms">Wind Speed (m/s)</option>
-                    <option value="solar_radiation_wm2">Solar Radiation (W/m²)</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- SLIDER BAR 1: FAULT MAGNITUDE / OFFSET -->
-              <div class="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl space-y-2 text-xs">
-                <div class="flex justify-between items-center">
-                  <label class="text-slate-300 font-semibold flex items-center space-x-1.5">
-                    <i data-lucide="sliders" class="w-3.5 h-3.5 text-cyan-400"></i>
-                    <span>Slide Bar: Injected Fault Magnitude / Value Offset</span>
-                  </label>
-                  <span id="slider-mag-val" class="text-cyan-400 font-mono font-bold text-sm bg-cyan-950/60 px-2.5 py-0.5 rounded border border-cyan-800/40">+25.0</span>
-                </div>
-                <div class="flex items-center space-x-3">
-                  <input type="range" id="fault-magnitude-slider" min="-50" max="100" step="0.5" value="25.0" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
-                  <input type="number" id="fault-magnitude-input" value="25.0" step="0.5" class="w-24 bg-slate-950 border border-slate-700 p-2 rounded-lg text-slate-200 text-center font-mono font-bold">
-                </div>
-              </div>
-
-              <!-- SLIDER BAR 2: FAULT DURATION -->
-              <div class="bg-slate-900/90 border border-slate-800 p-3.5 rounded-xl space-y-2 text-xs">
-                <div class="flex justify-between items-center">
-                  <label class="text-slate-300 font-semibold flex items-center space-x-1.5">
-                    <i data-lucide="timer" class="w-3.5 h-3.5 text-amber-400"></i>
-                    <span>Slide Bar: Fault Duration (Timesteps)</span>
-                  </label>
-                  <span id="slider-dur-val" class="text-amber-400 font-mono font-bold text-sm bg-amber-950/60 px-2.5 py-0.5 rounded border border-amber-800/40">5 steps (75 mins)</span>
-                </div>
-                <div class="flex items-center space-x-3">
-                  <input type="range" id="fault-duration-slider" min="1" max="20" step="1" value="5" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-400">
-                  <input type="number" id="fault-duration-input" value="5" min="1" max="20" class="w-24 bg-slate-950 border border-slate-700 p-2 rounded-lg text-slate-200 text-center font-mono font-bold">
-                </div>
-              </div>
-
-              <!-- LIVE FAULTY VALUE CALCULATION BANNER -->
-              <div id="fault-live-preview" class="p-3.5 bg-slate-950 border border-slate-800 rounded-xl text-xs flex flex-wrap items-center justify-between gap-2 shadow-inner">
-                <div class="flex items-center space-x-2">
-                  <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
-                  <span class="text-slate-400">Faulty Telemetry Value:</span>
-                  <span id="preview-fault-calc" class="font-mono text-rose-400 font-bold">53.50 °C (Spike Exceedance)</span>
-                </div>
-                <span class="px-2.5 py-0.5 rounded text-[10px] font-mono bg-rose-950/80 text-rose-300 border border-rose-800/60 font-bold uppercase tracking-wider">AI Detection Armed</span>
-              </div>
-
-              <div class="flex items-center space-x-3 pt-2">
-                <button type="submit" class="flex-1 py-3 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-lg shadow-cyan-500/25 transition cursor-pointer flex items-center justify-center space-x-2">
-                  <i data-lucide="zap" class="w-4 h-4 fill-current"></i>
-                  <span>Inject Fault & Trigger AI Pipeline</span>
-                </button>
-                <button type="button" id="btn-clear-faults" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-lg border border-slate-700 cursor-pointer transition flex items-center space-x-1.5">
-                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                  <span>Clear Faults</span>
-                </button>
-              </div>
-            </form>
+      <div id="view-simulator" class="tab-content space-y-4">
+        
+        <!-- Lab Header Bar -->
+        <div class="flex flex-wrap items-center justify-between gap-3 p-4 bg-cardBg border border-cardBorder rounded-xl">
+          <div class="flex items-center space-x-3">
+            <i data-lucide="menu" class="w-5 h-5 text-slate-400"></i>
+            <h2 class="text-xs sm:text-sm font-bold text-white tracking-wider uppercase flex items-center space-x-2">
+              <span>SYNTHETIC METEOROLOGICAL FAULT INJECTION LAB</span>
+            </h2>
           </div>
-
-          <div class="bg-cardBg border border-cardBorder p-6 rounded-xl space-y-4">
-            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Pre-Built Benchmark Scenarios</h3>
-            <div class="space-y-3 text-xs">
-              <div onclick="window.app.triggerBenchmark('SPIKE', 'temperature_c', 22.0, 4)" class="p-3.5 bg-slate-900 border border-slate-800 rounded-lg hover:border-cyan-500 cursor-pointer transition group">
-                <div class="font-bold text-roseDanger group-hover:text-rose-300">1. Lightning Voltage Surge (+22°C)</div>
-                <p class="text-slate-400 mt-1 text-[11px]">Injects +22°C transient step surge to test Tier 1 dynamic rate-of-change and WMO exceedance.</p>
-              </div>
-              <div onclick="window.app.triggerBenchmark('SENSOR_DRIFT', 'humidity_pct', 25.0, 6)" class="p-3.5 bg-slate-900 border border-slate-800 rounded-lg hover:border-cyan-500 cursor-pointer transition group">
-                <div class="font-bold text-amberWarning group-hover:text-amber-300">2. Capacitive Hygrometer Drift (+25% RH)</div>
-                <p class="text-slate-400 mt-1 text-[11px]">Simulates polymer aging with progressive linear drift and Magnus dew-point contradiction ($T_d > T$).</p>
-              </div>
-              <div onclick="window.app.triggerBenchmark('FROZEN_SENSOR', 'wind_speed_ms', 0.0, 8)" class="p-3.5 bg-slate-900 border border-slate-800 rounded-lg hover:border-cyan-500 cursor-pointer transition group">
-                <div class="font-bold text-cyan-400 group-hover:text-cyan-300">3. Anemometer Bearing Stall (0.0 m/s Freeze)</div>
-                <p class="text-slate-400 mt-1 text-[11px]">Locks wind speed telemetry to zero-variance flatline under active thermal gradient.</p>
-              </div>
+          <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-2 text-xs">
+              <label class="text-slate-400 hidden sm:inline">Target Station:</label>
+              <select id="sim-station-select" class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 font-medium">
+                <!-- Dynamically populated -->
+              </select>
             </div>
+            <div id="sim-stream-badge" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs font-mono text-slate-300">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span id="sim-status-label">ONLINE</span>
+            </div>
+            <button onclick="window.app.toggleAutoSimulation()" id="lab-btn-live" class="flex items-center space-x-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow transition cursor-pointer">
+              <i data-lucide="play" class="w-3.5 h-3.5 fill-current"></i>
+              <span id="lab-btn-live-text">Live Telemetry</span>
+            </button>
           </div>
         </div>
+
+        <!-- 2-Column Main Layout: Left Controls (8 cols) & Right Recent Injections (4 cols) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          
+          <!-- LEFT COLUMN: Fault Injection Studio Controls -->
+          <div class="lg:col-span-8 space-y-4">
+            
+            <!-- SECTION 1 & 2: 2x3 Grid of Interactive Fault Type Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="fault-cards-grid">
+              
+              <!-- Card 1: Transient Spike -->
+              <div onclick="window.app.selectFaultCard('SPIKE')" id="fault-card-SPIKE" class="fault-type-card active p-3.5 bg-slate-900/80 border border-cyan-500/80 rounded-xl cursor-pointer transition relative hover:border-cyan-400 group shadow-sm">
+                <div class="flex items-start justify-between">
+                  <div class="font-bold text-sm text-cyan-400 group-hover:text-cyan-300 flex items-center space-x-1.5">
+                    <span>⚡ Transient Spike</span>
+                  </div>
+                  <div class="card-radio w-4 h-4 rounded-full border border-cyan-400 bg-cyan-500 flex items-center justify-center text-[10px] text-black font-bold">✓</div>
+                </div>
+                <p class="text-slate-400 text-xs mt-1.5 leading-relaxed">Single-tick step divergence on selected sensor channel</p>
+              </div>
+
+              <!-- Card 2: Frozen Telemetry -->
+              <div onclick="window.app.selectFaultCard('FROZEN_SENSOR')" id="fault-card-FROZEN_SENSOR" class="fault-type-card p-3.5 bg-slate-900/80 border border-slate-800 rounded-xl cursor-pointer transition relative hover:border-slate-600 group shadow-sm">
+                <div class="flex items-start justify-between">
+                  <div class="font-bold text-sm text-slate-200 group-hover:text-cyan-300 flex items-center space-x-1.5">
+                    <span>❄️ Frozen Telemetry</span>
+                  </div>
+                  <div class="card-radio w-4 h-4 rounded-full border border-slate-700 bg-transparent flex items-center justify-center text-[10px] text-transparent">✓</div>
+                </div>
+                <p class="text-slate-400 text-xs mt-1.5 leading-relaxed">Hardware ADC lockup with zero natural micro-variance</p>
+              </div>
+
+              <!-- Card 3: Sensor Drift -->
+              <div onclick="window.app.selectFaultCard('SENSOR_DRIFT')" id="fault-card-SENSOR_DRIFT" class="fault-type-card p-3.5 bg-slate-900/80 border border-slate-800 rounded-xl cursor-pointer transition relative hover:border-slate-600 group shadow-sm">
+                <div class="flex items-start justify-between">
+                  <div class="font-bold text-sm text-slate-200 group-hover:text-cyan-300 flex items-center space-x-1.5">
+                    <span>📉 Sensor Drift</span>
+                  </div>
+                  <div class="card-radio w-4 h-4 rounded-full border border-slate-700 bg-transparent flex items-center justify-center text-[10px] text-transparent">✓</div>
+                </div>
+                <p class="text-slate-400 text-xs mt-1.5 leading-relaxed">Sustained linear calibration decay on selected channel</p>
+              </div>
+
+              <!-- Card 4: Psychrometric Violation -->
+              <div onclick="window.app.selectFaultCard('CROSS_SENSOR_INCONSISTENCY')" id="fault-card-CROSS_SENSOR_INCONSISTENCY" class="fault-type-card p-3.5 bg-slate-900/80 border border-slate-800 rounded-xl cursor-pointer transition relative hover:border-slate-600 group shadow-sm">
+                <div class="flex items-start justify-between">
+                  <div class="font-bold text-sm text-slate-200 group-hover:text-cyan-300 flex items-center space-x-1.5">
+                    <span>🔄 Psychrometric Violation</span>
+                  </div>
+                  <div class="card-radio w-4 h-4 rounded-full border border-slate-700 bg-transparent flex items-center justify-center text-[10px] text-transparent">✓</div>
+                </div>
+                <p class="text-slate-400 text-xs mt-1.5 leading-relaxed">High Heat (52°C) + 96% RH (Atmospheric physics violation)</p>
+              </div>
+
+              <!-- Card 5: Spatial Outlier -->
+              <div onclick="window.app.selectFaultCard('SPATIAL_DISCREPANCY')" id="fault-card-SPATIAL_DISCREPANCY" class="fault-type-card p-3.5 bg-slate-900/80 border border-slate-800 rounded-xl cursor-pointer transition relative hover:border-slate-600 group shadow-sm">
+                <div class="flex items-start justify-between">
+                  <div class="font-bold text-sm text-slate-200 group-hover:text-cyan-300 flex items-center space-x-1.5">
+                    <span>🌐 Spatial Outlier</span>
+                  </div>
+                  <div class="card-radio w-4 h-4 rounded-full border border-slate-700 bg-transparent flex items-center justify-center text-[10px] text-transparent">✓</div>
+                </div>
+                <p class="text-slate-400 text-xs mt-1.5 leading-relaxed">Multi-node spatial divergence against 3 nearest AWS neighbors</p>
+              </div>
+
+              <!-- Card 6: Telemetry Signal Dropout -->
+              <div onclick="window.app.selectFaultCard('DROPOUT')" id="fault-card-DROPOUT" class="fault-type-card p-3.5 bg-slate-900/80 border border-slate-800 rounded-xl cursor-pointer transition relative hover:border-slate-600 group shadow-sm">
+                <div class="flex items-start justify-between">
+                  <div class="font-bold text-sm text-slate-200 group-hover:text-cyan-300 flex items-center space-x-1.5">
+                    <span>📡 Telemetry Signal Dropout</span>
+                  </div>
+                  <div class="card-radio w-4 h-4 rounded-full border border-slate-700 bg-transparent flex items-center justify-center text-[10px] text-transparent">✓</div>
+                </div>
+                <p class="text-slate-400 text-xs mt-1.5 leading-relaxed">Total sensor communication loss (null telemetry stream)</p>
+              </div>
+
+            </div>
+
+            <!-- Hidden input maintaining active selected fault type -->
+            <input type="hidden" id="fault-type-select" value="SPIKE">
+
+            <!-- SECTION 3: Target Sensor Channel (Pill Buttons) -->
+            <div class="bg-cardBg border border-cardBorder p-4 rounded-xl space-y-2.5">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">3. Target Sensor Channel</h4>
+              <div class="flex flex-wrap gap-2" id="sensor-pills-container">
+                <button type="button" onclick="window.app.selectSensorPill('temperature_c', this)" class="sensor-pill-btn active px-4 py-2 bg-cyan-950/60 border border-cyan-500 text-cyan-300 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm">
+                  Temperature
+                </button>
+                <button type="button" onclick="window.app.selectSensorPill('pressure_hpa', this)" class="sensor-pill-btn px-4 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold transition cursor-pointer">
+                  Pressure
+                </button>
+                <button type="button" onclick="window.app.selectSensorPill('humidity_pct', this)" class="sensor-pill-btn px-4 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold transition cursor-pointer">
+                  Humidity
+                </button>
+                <button type="button" onclick="window.app.selectSensorPill('wind_speed_ms', this)" class="sensor-pill-btn px-4 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold transition cursor-pointer">
+                  Wind Speed
+                </button>
+              </div>
+              <input type="hidden" id="fault-sensor-select" value="temperature_c">
+            </div>
+
+            <!-- SECTION 4: Fault Severity Classification (Pill Buttons) -->
+            <div class="bg-cardBg border border-cardBorder p-4 rounded-xl space-y-2.5">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">4. Fault Severity Classification</h4>
+              <div class="flex flex-wrap gap-2" id="severity-pills-container">
+                <button type="button" onclick="window.app.selectSeverityPill('AUTO', this)" class="severity-pill-btn active px-4 py-2 bg-cyan-950/60 border border-cyan-500 text-cyan-300 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm">
+                  Auto
+                </button>
+                <button type="button" onclick="window.app.selectSeverityPill('WARNING', this)" class="severity-pill-btn px-4 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold transition cursor-pointer">
+                  Warning
+                </button>
+                <button type="button" onclick="window.app.selectSeverityPill('CRITICAL', this)" class="severity-pill-btn px-4 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold transition cursor-pointer">
+                  Critical
+                </button>
+              </div>
+              <input type="hidden" id="fault-severity-select" value="AUTO">
+            </div>
+
+            <!-- SECTION 5: Sensor Telemetry Configuration (Live Slider & Locked Channels) -->
+            <div class="bg-cardBg border border-cardBorder p-5 rounded-xl space-y-4">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">5. Sensor Telemetry Configuration</h4>
+              
+              <!-- Primary Active Channel Slider -->
+              <div class="space-y-2">
+                <div class="flex justify-between items-center text-xs">
+                  <span id="active-sensor-label" class="text-slate-300 font-semibold">Temperature</span>
+                  <div class="flex items-center space-x-2">
+                    <span id="active-sensor-badge" class="font-mono font-bold text-cyan-400 text-sm">50.5 °C</span>
+                    <input type="number" id="fault-magnitude-input" value="50.5" step="0.5" class="w-20 bg-slate-950 border border-slate-700 py-1 px-2 rounded text-slate-100 font-mono text-center text-xs font-bold">
+                  </div>
+                </div>
+                <input type="range" id="fault-magnitude-slider" min="-20" max="80" step="0.5" value="50.5" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+              </div>
+
+              <!-- Locked Baseline 1: Barometric Pressure -->
+              <div class="space-y-2 pt-2 border-t border-slate-800/80 opacity-60 hover:opacity-100 transition">
+                <div class="flex justify-between items-center text-xs">
+                  <span class="text-slate-400 flex items-center space-x-1.5">
+                    <span>🔒</span>
+                    <span>Barometric Pressure (Locked: baseline 1010 hPa)</span>
+                  </span>
+                  <div class="flex items-center space-x-2">
+                    <span class="font-mono text-slate-400 text-xs">1010 hPa</span>
+                    <input type="number" value="1010" disabled class="w-20 bg-slate-950/60 border border-slate-800 py-1 px-2 rounded text-slate-500 font-mono text-center text-xs cursor-not-allowed">
+                  </div>
+                </div>
+                <input type="range" min="950" max="1050" value="1010" disabled class="w-full h-1.5 bg-slate-800/60 rounded-lg appearance-none cursor-not-allowed accent-slate-600">
+              </div>
+
+              <!-- Locked Baseline 2: Relative Humidity -->
+              <div class="space-y-2 pt-2 border-t border-slate-800/80 opacity-60 hover:opacity-100 transition">
+                <div class="flex justify-between items-center text-xs">
+                  <span class="text-slate-400 flex items-center space-x-1.5">
+                    <span>🔒</span>
+                    <span>Relative Humidity (Locked: baseline 78%)</span>
+                  </span>
+                  <div class="flex items-center space-x-2">
+                    <span class="font-mono text-slate-400 text-xs">78%</span>
+                    <input type="number" value="78" disabled class="w-20 bg-slate-950/60 border border-slate-800 py-1 px-2 rounded text-slate-500 font-mono text-center text-xs cursor-not-allowed">
+                  </div>
+                </div>
+                <input type="range" min="10" max="100" value="78" disabled class="w-full h-1.5 bg-slate-800/60 rounded-lg appearance-none cursor-not-allowed accent-slate-600">
+              </div>
+            </div>
+
+            <!-- Action Button Bar -->
+            <div class="flex items-center space-x-3 pt-1">
+              <button type="button" onclick="window.app.handleFaultInjection()" class="flex-1 py-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-blue-600/30 transition cursor-pointer flex items-center justify-center space-x-2">
+                <i data-lucide="zap" class="w-4 h-4 fill-current"></i>
+                <span>Inject Physical Fault into Stream</span>
+              </button>
+              <button type="button" onclick="window.app.clearAllFaults()" class="px-4 py-3.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl border border-slate-700 cursor-pointer transition flex items-center space-x-1.5" title="Clear all active synthetic faults">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <span>Clear Faults</span>
+              </button>
+            </div>
+
+          </div>
+
+          <!-- RIGHT COLUMN: Recent Injections Panel & Benchmark Scenarios -->
+          <div class="lg:col-span-4 space-y-4">
+            
+            <!-- Recent Injections Container -->
+            <div class="bg-cardBg border border-cardBorder p-5 rounded-xl space-y-3 flex flex-col min-h-[300px]">
+              <div class="flex items-center justify-between pb-2 border-b border-cardBorder">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center space-x-1.5">
+                  <i data-lucide="history" class="w-3.5 h-3.5 text-cyan-400"></i>
+                  <span>Recent Injections</span>
+                </h3>
+                <span id="recent-injections-count" class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">0 logs</span>
+              </div>
+              
+              <div id="recent-injections-list" class="space-y-2.5 flex-1 overflow-y-auto max-h-[380px] custom-scrollbar">
+                <div class="p-6 text-center text-slate-500 text-xs italic">
+                  No manual faults triggered yet in this session.
+                </div>
+              </div>
+            </div>
+
+            <!-- Pre-Built Benchmark Scenarios -->
+            <div class="bg-cardBg border border-cardBorder p-5 rounded-xl space-y-3">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Pre-Built Benchmark Scenarios</h4>
+              <div class="space-y-2.5 text-xs">
+                <div onclick="window.app.triggerBenchmark('SPIKE', 'temperature_c', 22.0, 4)" class="p-3 bg-slate-900 border border-slate-800 rounded-lg hover:border-cyan-500 cursor-pointer transition group">
+                  <div class="font-bold text-roseDanger group-hover:text-rose-300">1. Lightning Voltage Surge (+22°C)</div>
+                  <p class="text-slate-400 mt-0.5 text-[11px]">Injects +22°C transient step surge to test Tier 1 dynamic rate-of-change and WMO exceedance.</p>
+                </div>
+                <div onclick="window.app.triggerBenchmark('SENSOR_DRIFT', 'humidity_pct', 25.0, 6)" class="p-3 bg-slate-900 border border-slate-800 rounded-lg hover:border-cyan-500 cursor-pointer transition group">
+                  <div class="font-bold text-amberWarning group-hover:text-amber-300">2. Capacitive Hygrometer Drift (+25% RH)</div>
+                  <p class="text-slate-400 mt-0.5 text-[11px]">Simulates polymer aging with progressive linear drift and Magnus dew-point contradiction ($T_d > T$).</p>
+                </div>
+                <div onclick="window.app.triggerBenchmark('FROZEN_SENSOR', 'wind_speed_ms', 0.0, 8)" class="p-3 bg-slate-900 border border-slate-800 rounded-lg hover:border-cyan-500 cursor-pointer transition group">
+                  <div class="font-bold text-cyan-400 group-hover:text-cyan-300">3. Anemometer Bearing Stall (0.0 m/s Freeze)</div>
+                  <p class="text-slate-400 mt-0.5 text-[11px]">Locks wind speed telemetry to zero-variance flatline under active thermal gradient.</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
       </div>
+
 
 
       <!-- ======================================================= -->

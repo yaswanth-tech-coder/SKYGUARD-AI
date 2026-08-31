@@ -399,6 +399,16 @@ class WeatherTelemetrySimulator:
                     if f_sensor in reading:
                         reading[f_sensor] = f_mag
 
+                elif f_type == "SPATIAL_DISCREPANCY":
+                    # Multi-node spatial divergence against nearest AWS neighbors
+                    if f_sensor in reading:
+                        reading[f_sensor] += (f_mag if abs(f_mag) > 5 else 22.5)
+
+                elif f_type == "DROPOUT":
+                    # Total telemetry signal loss / null communication
+                    if f_sensor in reading:
+                        reading[f_sensor] = 0.0
+
                 elif f_type == "SQUALL_EXTREME":
                     # Coherent extreme meteorological event (Severe Storm)
                     reading["wind_speed_ms"] = max(24.5, reading["wind_speed_ms"] + 18.0)
@@ -408,6 +418,7 @@ class WeatherTelemetrySimulator:
                     reading["humidity_pct"] = 96.0
 
             self.active_faults[stn_id] = retained_faults
+
 
         elif getattr(self, 'enable_live_stream_anomalies', True):
             # Dynamic realistic background anomaly generation during continuous live stream

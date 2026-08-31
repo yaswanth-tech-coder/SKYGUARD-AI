@@ -11,6 +11,11 @@ class WeatherApp {
     this.chartsManager = null;
     this.currentChannel = 'temperature_c';
 
+    this.selectedFaultType = 'SPIKE';
+    this.selectedSensor = 'temperature_c';
+    this.selectedSeverity = 'AUTO';
+    this.recentInjections = [];
+
     // Filters for Alerts View
     this.alertFilters = {
       station_id: '',
@@ -40,6 +45,9 @@ class WeatherApp {
     // Initialize Fault Studio Sliders and Live Preview
     this.initFaultSliders();
 
+    // Render initial empty recent injections state
+    this.renderRecentInjections();
+
     // Initial Data Fetch
     await this.refreshAllData();
 
@@ -61,9 +69,16 @@ class WeatherApp {
     this.setTheme(savedTheme, false);
   }
 
+  toggleTheme() {
+    const currentTheme = document.body.classList.contains('light') ? 'light' : 'dark';
+    const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+    this.setTheme(nextTheme, true);
+  }
+
   setTheme(theme, save = true) {
     const btnDark = document.getElementById('theme-btn-dark');
     const btnLight = document.getElementById('theme-btn-light');
+    const sidebarThemeLabel = document.getElementById('sidebar-theme-label');
     const body = document.body;
 
     if (theme === 'light') {
@@ -73,6 +88,9 @@ class WeatherApp {
       }
       if (btnDark) {
         btnDark.className = 'theme-btn px-2.5 py-1 text-xs font-semibold rounded-md flex items-center space-x-1.5 transition cursor-pointer text-slate-500 hover:text-slate-800';
+      }
+      if (sidebarThemeLabel) {
+        sidebarThemeLabel.innerText = 'Switch to Dark';
       }
       if (save) {
         localStorage.setItem('skyguard_theme', 'light');
@@ -84,6 +102,9 @@ class WeatherApp {
       }
       if (btnLight) {
         btnLight.className = 'theme-btn px-2.5 py-1 text-xs font-semibold rounded-md flex items-center space-x-1.5 transition cursor-pointer text-slate-400 hover:text-slate-200';
+      }
+      if (sidebarThemeLabel) {
+        sidebarThemeLabel.innerText = 'Switch to Light';
       }
       if (save) {
         localStorage.setItem('skyguard_theme', 'dark');
@@ -105,6 +126,7 @@ class WeatherApp {
       window.lucide.createIcons();
     }
   }
+
 
 
 
@@ -630,59 +652,164 @@ class WeatherApp {
     }
   }
 
+  selectFaultCard(type) {
+    this.selectedFaultType = type;
+    const typeHidden = document.getElementById('fault-type-select');
+    if (typeHidden) typeHidden.value = type;
+
+    // Update active UI cards styling
+    document.querySelectorAll('.fault-type-card').forEach(card => {
+      const isSelected = card.id === `fault-card-${type}`;
+      if (isSelected) {
+        card.classList.add('active', 'border-cyan-500/80', 'bg-cyan-950/20');
+        card.classList.remove('border-slate-800');
+        const title = card.querySelector('.font-bold');
+        if (title) {
+          title.classList.add('text-cyan-400');
+          title.classList.remove('text-slate-200');
+        }
+        const radio = card.querySelector('.card-radio');
+        if (radio) {
+          radio.className = 'card-radio w-4 h-4 rounded-full border border-cyan-400 bg-cyan-500 flex items-center justify-center text-[10px] text-black font-bold';
+          radio.innerText = '✓';
+        }
+      } else {
+        card.classList.remove('active', 'border-cyan-500/80', 'bg-cyan-950/20');
+        card.classList.add('border-slate-800');
+        const title = card.querySelector('.font-bold');
+        if (title) {
+          title.classList.remove('text-cyan-400');
+          title.classList.add('text-slate-200');
+        }
+        const radio = card.querySelector('.card-radio');
+        if (radio) {
+          radio.className = 'card-radio w-4 h-4 rounded-full border border-slate-700 bg-transparent flex items-center justify-center text-[10px] text-transparent';
+          radio.innerText = '✓';
+        }
+      }
+    });
+
+    // Preset appropriate magnitude/offset per fault taxonomy
+    const magInput = document.getElementById('fault-magnitude-input');
+    const magSlider = document.getElementById('fault-magnitude-slider');
+    
+    if (type === 'CROSS_SENSOR_INCONSISTENCY') {
+      this.selectSensorPill('temperature_c');
+      if (magInput) magInput.value = 52.0;
+      if (magSlider) magSlider.value = 52.0;
+    } else if (type === 'FROZEN_SENSOR') {
+      if (magInput) magInput.value = 0.0;
+      if (magSlider) magSlider.value = 0.0;
+    } else if (type === 'DROPOUT') {
+      if (magInput) magInput.value = 0.0;
+      if (magSlider) magSlider.value = 0.0;
+    } else if (type === 'SPIKE') {
+      if (magInput) magInput.value = 50.5;
+      if (magSlider) magSlider.value = 50.5;
+    } else if (type === 'SENSOR_DRIFT') {
+      if (magInput) magInput.value = 45.0;
+      if (magSlider) magSlider.value = 45.0;
+    } else if (type === 'SPATIAL_DISCREPANCY') {
+      if (magInput) magInput.value = 48.0;
+      if (magSlider) magSlider.value = 48.0;
+    }
+
+    this.updateFaultPreview();
+  }
+
+  selectSensorPill(sensor, btnEl) {
+    this.selectedSensor = sensor;
+    const sensorHidden = document.getElementById('fault-sensor-select');
+    if (sensorHidden) sensorHidden.value = sensor;
+
+    // Update active pill button styling
+    const container = document.getElementById('sensor-pills-container');
+    if (container) {
+      container.querySelectorAll('.sensor-pill-btn').forEach(btn => {
+        btn.className = 'sensor-pill-btn px-4 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold transition cursor-pointer';
+      });
+    }
+    if (btnEl) {
+      btnEl.className = 'sensor-pill-btn active px-4 py-2 bg-cyan-950/60 border border-cyan-500 text-cyan-300 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm';
+    } else if (container) {
+      const match = Array.from(container.querySelectorAll('.sensor-pill-btn')).find(b => b.innerText.toLowerCase().includes(sensor.split('_')[0]));
+      if (match) match.className = 'sensor-pill-btn active px-4 py-2 bg-cyan-950/60 border border-cyan-500 text-cyan-300 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm';
+    }
+
+    // Update slider label and min/max/step
+    const labelEl = document.getElementById('active-sensor-label');
+    const magInput = document.getElementById('fault-magnitude-input');
+    const magSlider = document.getElementById('fault-magnitude-slider');
+
+    if (sensor === 'temperature_c') {
+      if (labelEl) labelEl.innerText = 'Temperature';
+      if (magSlider) { magSlider.min = -20; magSlider.max = 80; magSlider.step = 0.5; }
+    } else if (sensor === 'pressure_hpa') {
+      if (labelEl) labelEl.innerText = 'Barometric Pressure';
+      if (magSlider) { magSlider.min = 850; magSlider.max = 1100; magSlider.step = 1; }
+      if (magInput && magSlider && (parseFloat(magSlider.value) < 850 || parseFloat(magSlider.value) > 1100)) {
+        magInput.value = 980; magSlider.value = 980;
+      }
+    } else if (sensor === 'humidity_pct') {
+      if (labelEl) labelEl.innerText = 'Relative Humidity';
+      if (magSlider) { magSlider.min = 0; magSlider.max = 100; magSlider.step = 1; }
+      if (magInput && magSlider && (parseFloat(magSlider.value) < 0 || parseFloat(magSlider.value) > 100)) {
+        magInput.value = 88; magSlider.value = 88;
+      }
+    } else if (sensor === 'wind_speed_ms') {
+      if (labelEl) labelEl.innerText = 'Wind Speed';
+      if (magSlider) { magSlider.min = 0; magSlider.max = 50; magSlider.step = 0.5; }
+      if (magInput && magSlider && (parseFloat(magSlider.value) < 0 || parseFloat(magSlider.value) > 50)) {
+        magInput.value = 0.0; magSlider.value = 0.0;
+      }
+    }
+
+    this.updateFaultPreview();
+  }
+
+  selectSeverityPill(severity, btnEl) {
+    this.selectedSeverity = severity;
+    const sevHidden = document.getElementById('fault-severity-select');
+    if (sevHidden) sevHidden.value = severity;
+
+    const container = document.getElementById('severity-pills-container');
+    if (container) {
+      container.querySelectorAll('.severity-pill-btn').forEach(btn => {
+        btn.className = 'severity-pill-btn px-4 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold transition cursor-pointer';
+      });
+    }
+    if (btnEl) {
+      btnEl.className = 'severity-pill-btn active px-4 py-2 bg-cyan-950/60 border border-cyan-500 text-cyan-300 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm';
+    }
+  }
+
   initFaultSliders() {
     const magSlider = document.getElementById('fault-magnitude-slider');
     const magInput = document.getElementById('fault-magnitude-input');
-    const magVal = document.getElementById('slider-mag-val');
-
-    const durSlider = document.getElementById('fault-duration-slider');
-    const durInput = document.getElementById('fault-duration-input');
-    const durVal = document.getElementById('slider-dur-val');
-
-    const stnSelect = document.getElementById('sim-station-select');
-    const sensorSelect = document.getElementById('fault-sensor-select');
-    const typeSelect = document.getElementById('fault-type-select');
 
     if (magSlider && magInput) {
       magSlider.addEventListener('input', (e) => {
         magInput.value = e.target.value;
-        if (magVal) magVal.innerText = (parseFloat(e.target.value) >= 0 ? '+' : '') + e.target.value;
         this.updateFaultPreview();
       });
       magInput.addEventListener('input', (e) => {
         magSlider.value = e.target.value;
-        if (magVal) magVal.innerText = (parseFloat(e.target.value) >= 0 ? '+' : '') + e.target.value;
         this.updateFaultPreview();
       });
     }
 
-    if (durSlider && durInput) {
-      durSlider.addEventListener('input', (e) => {
-        durInput.value = e.target.value;
-        if (durVal) durVal.innerText = `${e.target.value} steps (${e.target.value * 15} mins)`;
-        this.updateFaultPreview();
-      });
-      durInput.addEventListener('input', (e) => {
-        durSlider.value = e.target.value;
-        if (durVal) durVal.innerText = `${e.target.value} steps (${e.target.value * 15} mins)`;
-        this.updateFaultPreview();
-      });
+    const stnSelect = document.getElementById('sim-station-select');
+    if (stnSelect) {
+      stnSelect.addEventListener('change', () => this.updateFaultPreview());
     }
-
-    [stnSelect, sensorSelect, typeSelect].forEach(el => {
-      if (el) el.addEventListener('change', () => this.updateFaultPreview());
-    });
 
     this.updateFaultPreview();
   }
 
   updateFaultPreview() {
-    const previewEl = document.getElementById('preview-fault-calc');
-    if (!previewEl) return;
-
-    const sensor = document.getElementById('fault-sensor-select')?.value || 'temperature_c';
-    const type = document.getElementById('fault-type-select')?.value || 'SPIKE';
-    const mag = parseFloat(document.getElementById('fault-magnitude-input')?.value || 25.0);
+    const badgeEl = document.getElementById('active-sensor-badge');
+    const sensor = document.getElementById('fault-sensor-select')?.value || this.selectedSensor || 'temperature_c';
+    const val = parseFloat(document.getElementById('fault-magnitude-input')?.value || document.getElementById('fault-magnitude-slider')?.value || 50.5);
 
     const units = {
       temperature_c: '°C',
@@ -691,6 +818,22 @@ class WeatherApp {
       wind_speed_ms: 'm/s',
       solar_radiation_wm2: 'W/m²'
     };
+    const unit = units[sensor] || '';
+
+    if (badgeEl) {
+      badgeEl.innerText = `${val.toFixed(1)} ${unit}`;
+    }
+  }
+
+  async handleFaultInjection() {
+    const stnId = document.getElementById('sim-station-select')?.value || this.selectedStationId;
+    const anomType = document.getElementById('fault-type-select')?.value || this.selectedFaultType || 'SPIKE';
+    const sensor = document.getElementById('fault-sensor-select')?.value || this.selectedSensor || 'temperature_c';
+    const severity = document.getElementById('fault-severity-select')?.value || this.selectedSeverity || 'AUTO';
+    const rawVal = parseFloat(document.getElementById('fault-magnitude-input')?.value || document.getElementById('fault-magnitude-slider')?.value || 50.5);
+    const duration = 5;
+
+    // Baselines for calculating delta magnitude offset
     const baselines = {
       temperature_c: 28.5,
       humidity_pct: 55.0,
@@ -698,24 +841,38 @@ class WeatherApp {
       wind_speed_ms: 4.2,
       solar_radiation_wm2: 650.0
     };
-
-    const unit = units[sensor] || '';
+    const units = {
+      temperature_c: '°C',
+      humidity_pct: '%',
+      pressure_hpa: 'hPa',
+      wind_speed_ms: 'm/s',
+      solar_radiation_wm2: 'W/m²'
+    };
     const base = baselines[sensor] || 25.0;
-    const faultyVal = (base + mag).toFixed(2);
+    const unit = units[sensor] || '';
+    const magnitude = parseFloat((rawVal - base).toFixed(2));
 
-    previewEl.innerHTML = `Baseline: <strong>${base} ${unit}</strong> &rarr; Faulty: <strong class="text-rose-400 font-bold">${faultyVal} ${unit}</strong> (${type})`;
-  }
-
-  async handleFaultInjection() {
-    const stnId = document.getElementById('sim-station-select')?.value || this.selectedStationId;
-    const anomType = document.getElementById('fault-type-select')?.value || 'SPIKE';
-    const sensor = document.getElementById('fault-sensor-select')?.value || 'temperature_c';
-    const magnitude = parseFloat(document.getElementById('fault-magnitude-input')?.value || document.getElementById('fault-magnitude-slider')?.value || 25.0);
-    const duration = parseInt(document.getElementById('fault-duration-input')?.value || document.getElementById('fault-duration-slider')?.value || 5);
+    const stn = this.stations.find(s => s.id === stnId);
 
     try {
       await API.injectFault(stnId, anomType, sensor, magnitude, duration);
-      this.showToast(`⚡ Fault injected into ${stnId}: ${anomType} (${magnitude > 0 ? '+' : ''}${magnitude})! Running AI detection...`, 'amber');
+      this.showToast(`⚡ Physical fault injected into ${stnId}: ${anomType} (${rawVal} ${unit})! Running AI Sentinel...`, 'amber');
+
+      // Log into Recent Injections
+      this.recentInjections.unshift({
+        id: Date.now(),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        station_id: stnId,
+        station_code: stn ? stn.code : stnId,
+        station_name: stn ? stn.name : 'AWS Node',
+        fault_type: anomType,
+        sensor: sensor,
+        value: rawVal,
+        unit: unit,
+        severity: severity === 'AUTO' ? (Math.abs(magnitude) > 20 || anomType === 'SPIKE' ? 'CRITICAL' : 'WARNING') : severity,
+        status: 'DETECTED'
+      });
+      this.renderRecentInjections();
 
       // Auto-step immediately so that the Multi-Tier AI Detection processes the new faulty reading
       const stepRes = await API.stepSimulation();
@@ -750,28 +907,80 @@ class WeatherApp {
     }
   }
 
+  renderRecentInjections() {
+    const container = document.getElementById('recent-injections-list');
+    const countEl = document.getElementById('recent-injections-count');
+    if (!container) return;
+
+    if (countEl) {
+      countEl.innerText = `${this.recentInjections.length} logs`;
+    }
+
+    if (this.recentInjections.length === 0) {
+      container.innerHTML = `
+        <div class="p-6 text-center text-slate-500 text-xs italic">
+          No manual faults triggered yet in this session.
+        </div>
+      `;
+      return;
+    }
+
+    const typeNames = {
+      SPIKE: '⚡ Transient Spike',
+      FROZEN_SENSOR: '❄️ Frozen Telemetry',
+      SENSOR_DRIFT: '📉 Sensor Drift',
+      CROSS_SENSOR_INCONSISTENCY: '🔄 Psychrometric Violation',
+      SPATIAL_DISCREPANCY: '🌐 Spatial Outlier',
+      DROPOUT: '📡 Signal Dropout'
+    };
+
+    container.innerHTML = this.recentInjections.map(inj => `
+      <div class="p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-1.5 shadow-sm text-xs border-l-4 ${inj.severity === 'CRITICAL' ? 'border-l-rose-500' : 'border-l-amber-500'}">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-200 flex items-center space-x-1.5">
+            <span>${typeNames[inj.fault_type] || inj.fault_type}</span>
+          </span>
+          <span class="text-[10px] font-mono text-slate-400">${inj.timestamp}</span>
+        </div>
+        <div class="flex items-center justify-between text-[11px]">
+          <span class="text-slate-400 font-mono">${inj.station_code}</span>
+          <span class="font-mono font-bold text-rose-400">${inj.value.toFixed(1)} ${inj.unit}</span>
+        </div>
+        <div class="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[10px]">
+          <span class="px-1.5 py-0.5 rounded font-mono ${inj.severity === 'CRITICAL' ? 'bg-rose-950 text-rose-300 border border-rose-800/60 font-bold' : 'bg-amber-950 text-amber-300 border border-amber-800/60'}">${inj.severity}</span>
+          <span class="px-1.5 py-0.5 rounded font-mono bg-emerald-950 text-emerald-300 border border-emerald-800/60 font-bold">AI SENTINEL ARMED</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
   async triggerBenchmark(anomalyType, sensor, magnitude, duration) {
     const stnSelect = document.getElementById('sim-station-select');
     if (!stnSelect?.value && this.selectedStationId) {
       stnSelect.value = this.selectedStationId;
     }
     
-    const typeEl = document.getElementById('fault-type-select');
-    if (typeEl) typeEl.value = anomalyType;
-    const sensorEl = document.getElementById('fault-sensor-select');
-    if (sensorEl) sensorEl.value = sensor;
+    this.selectFaultCard(anomalyType);
+    this.selectSensorPill(sensor);
+
+    const baselines = {
+      temperature_c: 28.5,
+      humidity_pct: 55.0,
+      pressure_hpa: 1013.25,
+      wind_speed_ms: 4.2
+    };
+    const base = baselines[sensor] || 25.0;
+    const targetVal = parseFloat((base + magnitude).toFixed(1));
+
     const magInput = document.getElementById('fault-magnitude-input');
-    if (magInput) magInput.value = magnitude;
     const magSlider = document.getElementById('fault-magnitude-slider');
-    if (magSlider) magSlider.value = magnitude;
-    const durInput = document.getElementById('fault-duration-input');
-    if (durInput) durInput.value = duration;
-    const durSlider = document.getElementById('fault-duration-slider');
-    if (durSlider) durSlider.value = duration;
+    if (magInput) magInput.value = targetVal;
+    if (magSlider) magSlider.value = targetVal;
 
     this.updateFaultPreview();
     await this.handleFaultInjection();
   }
+
 
 
   async clearAllFaults() {

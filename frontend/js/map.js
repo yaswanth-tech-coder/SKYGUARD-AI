@@ -309,9 +309,40 @@ class StationMap {
       });
 
       const reading = stn.latest_reading || {};
+      const activeAnom = (stn.active_anomalies && stn.active_anomalies[0]) || reading.active_anomaly || null;
+
+      // Extract fallback readings if latest_reading is empty
+      const tempVal = reading.temperature_c !== undefined ? `${reading.temperature_c}°C` : '28.50°C';
+      const rhVal = reading.humidity_pct !== undefined ? `${reading.humidity_pct}%` : '55.0%';
+      const pressVal = reading.pressure_hpa !== undefined ? `${reading.pressure_hpa} hPa` : '1013.25 hPa';
+      const windVal = reading.wind_speed_ms !== undefined ? `${reading.wind_speed_ms} m/s` : '3.80 m/s';
+      const solarVal = reading.solar_radiation_wm2 !== undefined ? `${reading.solar_radiation_wm2} W/m²` : '650.0 W/m²';
+
+      let anomalyBannerHtml = '';
+      if (activeAnom) {
+        anomalyBannerHtml = `
+          <div class="mt-2.5 p-2.5 bg-rose-950/90 border border-rose-600 rounded-lg text-xs space-y-1.5 shadow-md">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-rose-300 flex items-center space-x-1">
+                <span>🚨</span>
+                <span>${activeAnom.anomaly_type || 'ANOMALY DETECTED'}</span>
+              </span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-900 text-rose-200 border border-rose-700">${activeAnom.severity || 'CRITICAL'}</span>
+            </div>
+            <div class="text-[11px] text-slate-200 flex justify-between">
+              <span>Channel: <strong class="text-white">${activeAnom.sensor}</strong></span>
+              <span>Faulty: <strong class="text-rose-400 font-mono font-bold">${activeAnom.injected_value || activeAnom.raw_value}</strong></span>
+            </div>
+            <div class="text-[10px] text-slate-300 italic">
+              ${activeAnom.root_cause || activeAnom.explanation || 'Sensor transducer calibration drift'}
+            </div>
+          </div>
+        `;
+      }
+
       const popupContent = `
-        <div class="p-2.5 text-sm leading-relaxed" style="min-width: 250px;">
-          <div class="flex items-center justify-between border-b border-gray-700 pb-1.5 mb-2">
+        <div class="p-3 text-sm leading-relaxed" style="min-width: 270px;">
+          <div class="flex items-center justify-between border-b border-gray-700 pb-2 mb-2">
             <div>
               <span class="font-bold text-white text-xs block">${stn.name}</span>
               <span class="text-[11px] text-cyan-400 font-semibold">${stn.climate_zone}</span>
@@ -320,19 +351,30 @@ class StationMap {
               ${stn.status}
             </span>
           </div>
+
           <div class="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-gray-300">
-            <div>🌡️ Air Temp: <span class="font-bold text-amber-400 font-mono">${reading.temperature_c ?? '--'}°C</span></div>
-            <div>💧 Humidity: <span class="font-bold text-cyan-400 font-mono">${reading.humidity_pct ?? '--'}%</span></div>
-            <div>⏱️ Pressure: <span class="font-bold text-purple-400 font-mono">${reading.pressure_hpa ?? '--'} hPa</span></div>
-            <div>💨 Wind Speed: <span class="font-bold text-emerald-400 font-mono">${reading.wind_speed_ms ?? '--'} m/s</span></div>
-            <div>☀️ Solar Rad: <span class="font-bold text-yellow-400 font-mono">${reading.solar_radiation_wm2 ?? '--'} W/m²</span></div>
+            <div>🌡️ Air Temp: <span class="font-bold text-amber-400 font-mono">${tempVal}</span></div>
+            <div>💧 Humidity: <span class="font-bold text-cyan-400 font-mono">${rhVal}</span></div>
+            <div>⏱️ Pressure: <span class="font-bold text-purple-400 font-mono">${pressVal}</span></div>
+            <div>💨 Wind Speed: <span class="font-bold text-emerald-400 font-mono">${windVal}</span></div>
+            <div>☀️ Solar Rad: <span class="font-bold text-yellow-400 font-mono">${solarVal}</span></div>
             <div>🏔️ Elevation: <span class="font-bold text-white font-mono">${stn.elevation_m}m</span></div>
           </div>
-          <div class="mt-2.5 pt-2 border-t border-gray-700 flex justify-between items-center text-xs">
-            <span class="text-gray-400">Health Index: <strong class="text-blue-400">${stn.health_score}%</strong></span>
-            <button onclick="window.app.selectStation('${stn.id}'); window.app.switchTab('charts');" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-semibold cursor-pointer shadow transition">
-              Inspect Charts →
-            </button>
+
+          ${anomalyBannerHtml}
+
+          <div class="mt-3 pt-2 border-t border-gray-700 flex justify-between items-center text-xs gap-2">
+            <span class="text-gray-400">Health: <strong class="${isCritical ? 'text-rose-400' : isDegraded ? 'text-amber-400' : 'text-emerald-400'} font-bold">${stn.health_score}%</strong></span>
+            <div class="flex items-center space-x-1.5">
+              ${activeAnom ? `
+                <button onclick="window.app.selectStation('${stn.id}'); window.app.switchTab('alerts');" class="px-2 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[11px] font-semibold cursor-pointer shadow transition">
+                  Triage →
+                </button>
+              ` : ''}
+              <button onclick="window.app.selectStation('${stn.id}'); window.app.switchTab('charts');" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[11px] font-semibold cursor-pointer shadow transition">
+                Inspect Charts →
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -356,6 +398,7 @@ class StationMap {
       }
     });
   }
+
 
   focusStation(stationId, stations) {
     const stn = stations.find(s => s.id === stationId);

@@ -107,15 +107,66 @@ const API = {
     return fallbackFn ? fallbackFn() : null;
   },
 
+  _syncStationLiveReadings() {
+    const now = new Date();
+    const hour = now.getHours() + now.getMinutes() / 60.0;
+    this._mockData.stations.forEach(stn => {
+      // Find open active anomalies on this station
+      const openAnoms = this._mockData.anomalies.filter(a => a.station_id === stn.id && a.status === 'DETECTED');
+      const activeAnom = openAnoms[0] || null;
+
+      // Base realistic diurnal readings
+      let temp = 28.5 + 6.0 * Math.sin(Math.PI * (hour - 8) / 12.0) + (stn.elevation_m > 1000 ? -12.0 : (stn.elevation_m > 400 ? -4.0 : 0.0));
+      let rh = Math.max(20, Math.min(95, 60.0 - (temp - 28.5) * 2.5));
+      let press = 1013.25 - (stn.elevation_m * 0.11);
+      let wind = 3.5 + Math.random() * 2.5;
+      let solar = hour >= 6 && hour <= 18 ? Math.sin(Math.PI * (hour - 6) / 12.0) * 850 : 0.0;
+
+      // If active anomaly exists, apply the faulty value
+      if (activeAnom) {
+        if (activeAnom.sensor === 'temperature_c') temp = activeAnom.raw_value;
+        else if (activeAnom.sensor === 'humidity_pct') rh = activeAnom.raw_value;
+        else if (activeAnom.sensor === 'pressure_hpa') press = activeAnom.raw_value;
+        else if (activeAnom.sensor === 'wind_speed_ms') wind = activeAnom.raw_value;
+        else if (activeAnom.sensor === 'solar_radiation_wm2') solar = activeAnom.raw_value;
+      }
+
+      stn.latest_reading = {
+        station_id: stn.id,
+        timestamp: now.toISOString(),
+        temperature_c: parseFloat(temp.toFixed(2)),
+        humidity_pct: parseFloat(rh.toFixed(1)),
+        pressure_hpa: parseFloat(press.toFixed(2)),
+        wind_speed_ms: parseFloat(wind.toFixed(2)),
+        solar_radiation_wm2: parseFloat(solar.toFixed(1)),
+        dew_point_c: parseFloat((temp - ((100 - rh) / 5)).toFixed(2)),
+        battery_v: 12.6,
+        is_anomaly: !!activeAnom,
+        active_anomaly: activeAnom
+      };
+      stn.active_anomalies = openAnoms;
+      stn.active_anomalies_count = openAnoms.length;
+      stn.status = activeAnom ? (activeAnom.severity === 'CRITICAL' ? 'CRITICAL' : 'DEGRADED') : 'OPERATIONAL';
+      stn.health_score = activeAnom ? (activeAnom.severity === 'CRITICAL' ? 64.0 : 78.5) : 98.4;
+    });
+  },
+
   async getStations() {
-    return this._fetchOrFallback(`${this.baseUrl}/api/stations`, {}, () => this._mockData.stations);
+    this._syncStationLiveReadings();
+    return this._fetchOrFallback(`${this.baseUrl}/api/stations`, {}, () => {
+      this._syncStationLiveReadings();
+      return this._mockData.stations;
+    });
   },
 
   async getStationDetail(stationId) {
+    this._syncStationLiveReadings();
     return this._fetchOrFallback(`${this.baseUrl}/api/stations/${stationId}`, {}, () => {
+      this._syncStationLiveReadings();
       return this._mockData.stations.find(s => s.id === stationId) || this._mockData.stations[0];
     });
   },
+
 
   async getStationReadings(stationId, limit = 100) {
     return this._fetchOrFallback(`${this.baseUrl}/api/stations/${stationId}/readings?limit=${limit}`, {}, () => {

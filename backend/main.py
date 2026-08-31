@@ -87,16 +87,18 @@ def get_all_stations(db: Session = Depends(get_db)):
         )
         data["latest_reading"] = latest_reading.to_dict() if latest_reading else None
         
-        # Count open critical/high anomalies
-        unresolved_anom_count = (
+        # Count open critical/high anomalies and attach active anomaly details
+        open_anomalies = (
             db.query(AnomalyEvent)
             .filter(
                 AnomalyEvent.station_id == stn.id,
                 AnomalyEvent.status == "DETECTED"
             )
-            .count()
+            .order_by(desc(AnomalyEvent.timestamp))
+            .all()
         )
-        data["active_anomalies_count"] = unresolved_anom_count
+        data["active_anomalies_count"] = len(open_anomalies)
+        data["active_anomalies"] = [format_anomaly_details(a) for a in open_anomalies]
         results.append(data)
     return results
 
@@ -116,6 +118,20 @@ def get_station_detail(station_id: str, db: Session = Depends(get_db)):
         .first()
     )
     data["latest_reading"] = latest_reading.to_dict() if latest_reading else None
+
+    # Fetch active open anomalies
+    open_anomalies = (
+        db.query(AnomalyEvent)
+        .filter(
+            AnomalyEvent.station_id == station_id,
+            AnomalyEvent.status == "DETECTED"
+        )
+        .order_by(desc(AnomalyEvent.timestamp))
+        .all()
+    )
+    data["active_anomalies_count"] = len(open_anomalies)
+    data["active_anomalies"] = [format_anomaly_details(a) for a in open_anomalies]
+
 
     # Anomaly breakdown by type
     anom_type_counts = (

@@ -357,12 +357,66 @@ class WeatherApp {
     if (!el) return;
 
     const r = stn.latest_reading || {};
+    const activeAnom = (stn.active_anomalies && stn.active_anomalies[0]) || r.active_anomaly || null;
+
+    const tempVal = r.temperature_c !== undefined ? `${r.temperature_c}°C` : '28.50°C';
+    const rhVal = r.humidity_pct !== undefined ? `${r.humidity_pct}%` : '55.0%';
+    const pressVal = r.pressure_hpa !== undefined ? `${r.pressure_hpa} hPa` : '1013.25 hPa';
+    const windVal = r.wind_speed_ms !== undefined ? `${r.wind_speed_ms} m/s` : '3.80 m/s';
+    const solarVal = r.solar_radiation_wm2 !== undefined ? `${r.solar_radiation_wm2} W/m²` : '650.0 W/m²';
+
+    let anomalySectionHtml = '';
+    if (activeAnom) {
+      anomalySectionHtml = `
+        <div class="mt-3 p-3.5 bg-rose-950/80 border border-rose-600/80 rounded-xl space-y-2 text-xs shadow-inner">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-rose-300 flex items-center space-x-1.5 text-xs">
+              <span>🚨</span>
+              <span>${activeAnom.anomaly_type || 'ANOMALY DETECTED'}</span>
+            </span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-900 text-rose-200 border border-rose-700">${activeAnom.severity || 'CRITICAL'}</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-[11px] bg-slate-950/60 p-2 rounded-lg border border-rose-900/60">
+            <div>
+              <span class="text-slate-400 block text-[10px]">Flagged Channel</span>
+              <span class="font-bold text-white font-mono">${activeAnom.sensor}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px]">Faulty Reading</span>
+              <span class="font-bold text-rose-400 font-mono text-xs">${activeAnom.injected_value || activeAnom.raw_value}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px]">ML Model</span>
+              <span class="text-cyan-400 font-mono">${activeAnom.ml_model || 'Tier-1 Dynamic Limit'}</span>
+            </div>
+            <div>
+              <span class="text-slate-400 block text-[10px]">Confidence</span>
+              <span class="text-emerald-400 font-mono font-bold">${((activeAnom.confidence_score || 0.96) * 100).toFixed(1)}%</span>
+            </div>
+          </div>
+
+          <div class="text-[11px] text-slate-300 pt-0.5">
+            <span class="text-slate-400 text-[10px] block">Root Cause Analysis:</span>
+            <span>${activeAnom.root_cause || activeAnom.explanation || 'Sensor transducer calibration drift'}</span>
+          </div>
+
+          <div class="pt-1 flex items-center justify-between gap-2">
+            <span class="text-[10px] text-amber-400 italic">${activeAnom.action || 'Recalibrate sensor transducer'}</span>
+            <button onclick="window.app.alertFilters.station_id = '${stn.id}'; window.app.switchTab('alerts');" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[11px] font-semibold transition cursor-pointer shadow">
+              Triage Alert →
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
     el.innerHTML = `
-      <div class="glass-panel p-4 rounded-xl border border-gray-700">
-        <div class="flex items-center justify-between mb-3">
+      <div class="bg-cardBg border border-cardBorder p-4 rounded-xl space-y-3">
+        <div class="flex items-center justify-between">
           <div>
-            <h3 class="text-base font-bold text-white">${stn.name}</h3>
-            <span class="text-xs text-gray-400 font-mono">${stn.code} | Elev: ${stn.elevation_m}m | ${stn.climate_zone}</span>
+            <h3 class="text-sm font-bold text-white">${stn.name}</h3>
+            <span class="text-[11px] text-slate-400 font-mono">${stn.code} | Elev: ${stn.elevation_m}m | ${stn.climate_zone}</span>
           </div>
           <span class="px-2.5 py-1 text-xs font-bold rounded-full ${
             stn.status === 'CRITICAL' ? 'badge-critical' : stn.status === 'DEGRADED' ? 'badge-high' : 'badge-operational'
@@ -370,34 +424,37 @@ class WeatherApp {
         </div>
 
         <div class="grid grid-cols-3 gap-2 text-center text-xs">
-          <div class="bg-gray-800/60 p-2 rounded-lg border border-gray-700">
-            <div class="text-gray-400">Air Temp</div>
-            <div class="text-sm font-bold text-amber-400">${r.temperature_c ?? '--'}°C</div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-slate-400 text-[10px]">Air Temp</div>
+            <div class="text-xs font-bold text-amber-400 font-mono">${tempVal}</div>
           </div>
-          <div class="bg-gray-800/60 p-2 rounded-lg border border-gray-700">
-            <div class="text-gray-400">Humidity</div>
-            <div class="text-sm font-bold text-cyan-400">${r.humidity_pct ?? '--'}%</div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-slate-400 text-[10px]">Humidity</div>
+            <div class="text-xs font-bold text-cyan-400 font-mono">${rhVal}</div>
           </div>
-          <div class="bg-gray-800/60 p-2 rounded-lg border border-gray-700">
-            <div class="text-gray-400">Pressure</div>
-            <div class="text-sm font-bold text-purple-400">${r.pressure_hpa ?? '--'} hPa</div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-slate-400 text-[10px]">Pressure</div>
+            <div class="text-xs font-bold text-purple-400 font-mono">${pressVal}</div>
           </div>
-          <div class="bg-gray-800/60 p-2 rounded-lg border border-gray-700">
-            <div class="text-gray-400">Wind Speed</div>
-            <div class="text-sm font-bold text-emerald-400">${r.wind_speed_ms ?? '--'} m/s</div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-slate-400 text-[10px]">Wind Speed</div>
+            <div class="text-xs font-bold text-emerald-400 font-mono">${windVal}</div>
           </div>
-          <div class="bg-gray-800/60 p-2 rounded-lg border border-gray-700">
-            <div class="text-gray-400">Solar Rad</div>
-            <div class="text-sm font-bold text-yellow-400">${r.solar_radiation_wm2 ?? '--'} W/m²</div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-slate-400 text-[10px]">Solar Rad</div>
+            <div class="text-xs font-bold text-yellow-400 font-mono">${solarVal}</div>
           </div>
-          <div class="bg-gray-800/60 p-2 rounded-lg border border-gray-700">
-            <div class="text-gray-400">Health Index</div>
-            <div class="text-sm font-bold text-blue-400">${stn.health_score}%</div>
+          <div class="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+            <div class="text-slate-400 text-[10px]">Health Index</div>
+            <div class="text-xs font-bold ${stn.status === 'CRITICAL' ? 'text-rose-400' : 'text-blue-400'} font-mono">${stn.health_score}%</div>
           </div>
         </div>
+
+        ${anomalySectionHtml}
       </div>
     `;
   }
+
 
   async loadStationChartData() {
     if (!this.selectedStationId) return;

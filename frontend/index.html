@@ -631,39 +631,6 @@
       <!-- ======================================================= -->
       <div id="view-models" class="tab-content space-y-6">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          <!-- Confusion Matrix Card -->
-          <div class="bg-cardBg border border-cardBorder p-5 rounded-xl space-y-4">
-            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Confusion Matrix & Performance</h4>
-            <div class="grid grid-cols-2 gap-3 text-center mb-3">
-              <div class="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                <div id="cm-tp" class="text-xl font-bold text-emeraldSuccess">384</div>
-                <div class="text-[10px] text-slate-400 uppercase mt-0.5">True Positives</div>
-              </div>
-              <div class="p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-lg">
-                <div id="cm-fp" class="text-xl font-bold text-roseDanger">14</div>
-                <div class="text-[10px] text-slate-400 uppercase mt-0.5">False Positives</div>
-              </div>
-              <div class="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                <div id="cm-fn" class="text-xl font-bold text-amberWarning">28</div>
-                <div class="text-[10px] text-slate-400 uppercase mt-0.5">False Negatives</div>
-              </div>
-              <div class="p-3.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-                <div id="cm-tn" class="text-xl font-bold text-blue-400">8,420</div>
-                <div class="text-[10px] text-slate-400 uppercase mt-0.5">True Negatives</div>
-              </div>
-            </div>
-
-
-            <div class="p-3 bg-slate-900/80 rounded-lg border border-slate-800 space-y-1.5 text-xs">
-              <div class="flex justify-between"><span class="text-slate-400">Precision:</span><strong id="cm-prec" class="text-emerald-400 font-mono">96.5%</strong></div>
-              <div class="flex justify-between"><span class="text-slate-400">Recall / Sensitivity:</span><strong id="cm-rec" class="text-cyan-400 font-mono">93.2%</strong></div>
-              <div class="flex justify-between"><span class="text-slate-400">Composite F1 Score:</span><strong id="cm-f1" class="text-white font-mono">0.948</strong></div>
-              <div class="flex justify-between"><span class="text-slate-400">ROC-AUC Score:</span><strong id="cm-roc" class="text-purple-400 font-mono">0.978</strong></div>
-            </div>
-          </div>
-
-
           <!-- Feature Importance Card -->
           <div class="lg:col-span-2 bg-cardBg border border-cardBorder p-5 rounded-xl space-y-4">
             <div class="flex items-center justify-between">
@@ -678,6 +645,14 @@
 
             <div id="model-feature-importance" class="pt-1 border-t border-slate-800/80">
               <!-- Dynamically populated list -->
+            </div>
+          </div>
+
+          <!-- Latency Stack Profile -->
+          <div class="bg-cardBg border border-cardBorder p-5 rounded-xl space-y-3">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Multi-Tier Defense Latency Stack</h4>
+            <div id="algorithm-stack-list">
+              <!-- Dynamically populated -->
             </div>
           </div>
         </div>
@@ -696,15 +671,8 @@
           
           <div id="plotly-3d-container" class="w-full h-[480px] rounded-lg overflow-hidden border border-slate-800 bg-[#090d16]"></div>
         </div>
-
-        <!-- Latency Stack Profile -->
-        <div class="bg-cardBg border border-cardBorder p-5 rounded-xl space-y-3">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Multi-Tier Defense Latency Stack</h4>
-          <div id="algorithm-stack-list">
-            <!-- Dynamically populated -->
-          </div>
-        </div>
       </div>
+
 
     </div>
   </main>

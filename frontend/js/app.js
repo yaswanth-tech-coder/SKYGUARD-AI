@@ -303,6 +303,7 @@ class WeatherApp {
       this.stations = await API.getStations();
       this.updateStationDropdowns();
       this.mapManager.updateStations(this.stations);
+      this.renderNetworkStationHealth();
       if (this.mapEngine === 'plotly') {
         this.loadPlotlyMap();
       }
@@ -315,6 +316,50 @@ class WeatherApp {
     }
   }
 
+  renderNetworkStationHealth() {
+    const container = document.getElementById('network-station-health-list');
+    const badge = document.getElementById('network-station-count');
+    if (!container) return;
+
+    if (badge) {
+      badge.innerText = `${this.stations.length} Active`;
+    }
+
+    container.innerHTML = this.stations.map(stn => {
+      const isCritical = stn.status === 'CRITICAL' || (stn.active_anomalies_count && stn.active_anomalies_count > 0);
+      const isWarning = stn.status === 'DEGRADED';
+      
+      const statusLabel = isCritical ? 'Critical' : isWarning ? 'Warning' : 'Healthy';
+      const statusClass = isCritical ? 'bg-rose-950/80 text-rose-300 border border-rose-800/80' :
+                          isWarning ? 'bg-amber-950/80 text-amber-300 border border-amber-800/80' :
+                          'bg-emerald-950/80 text-emerald-300 border border-emerald-800/80';
+      
+      const faultRateVal = isCritical ? '10.0%' : isWarning ? '10.0%' : (stn.health_score < 96 ? '8.0%' : (stn.health_score < 98 ? '6.0%' : '0.0%'));
+      const faultRateColor = isCritical ? 'text-amber-400 font-bold' : isWarning ? 'text-amber-400 font-bold' : (faultRateVal === '8.0%' || faultRateVal === '6.0%' ? 'text-emerald-400 font-bold' : 'text-emerald-400 font-bold');
+      
+      const isSelected = stn.id === this.selectedStationId;
+
+      return `
+        <div onclick="window.app.selectStation('${stn.id}');" class="grid grid-cols-12 items-center p-2 rounded-lg border transition cursor-pointer ${
+          isSelected ? 'bg-slate-800/90 border-cyan-500/80 shadow-sm' : 'bg-slate-900/60 border-slate-800/80 hover:bg-slate-800/50 hover:border-slate-700'
+        }">
+          <div class="col-span-6 flex items-center space-x-2.5 min-w-0 pr-1">
+            <div class="w-2 h-2 rounded-full shrink-0 ${isCritical ? 'bg-rose-500 shadow-[0_0_8px_#f43f5e]' : isWarning ? 'bg-amber-500 shadow-[0_0_8px_#f59e0b]' : 'bg-cyan-400 shadow-[0_0_8px_#22d3ee]'}"></div>
+            <div class="truncate">
+              <div class="text-xs font-bold text-slate-200 truncate leading-tight">${stn.name.replace(' AWS', '')}</div>
+              <div class="text-[10px] text-slate-400 font-mono truncate">${stn.code}</div>
+            </div>
+          </div>
+          <div class="col-span-3 text-center text-xs font-mono ${faultRateColor}">
+            ${faultRateVal}
+          </div>
+          <div class="col-span-3 text-right">
+            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${statusClass}">${statusLabel}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
 
   updateStationDropdowns() {
     const chartSelect = document.getElementById('chart-station-select');
@@ -340,7 +385,6 @@ class WeatherApp {
     }
   }
 
-
   async selectStation(stationId) {
     this.selectedStationId = stationId;
     const stn = this.stations.find(s => s.id === stationId);
@@ -350,13 +394,15 @@ class WeatherApp {
     const chartSelect = document.getElementById('chart-station-select');
     if (chartSelect) chartSelect.value = stationId;
 
-    // Update Station Details Card
+    // Update Station Details Card & Network Health List active styling
     this.updateStationDetailCard(stn);
+    this.renderNetworkStationHealth();
 
     // If on map, focus it
     if (this.mapManager) {
       this.mapManager.focusStation(stationId, this.stations);
     }
+
 
     // Refresh charts if on charts tab
     if (this.activeTab === 'charts') {

@@ -244,42 +244,34 @@
               </div>
             </div>
 
-            <div class="bg-cardBg border border-cardBorder rounded-xl p-4">
-              <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Multi-Tier Defense Architecture</h3>
-              <div class="space-y-2 text-xs">
-                <div class="p-2.5 bg-slate-900/80 border border-slate-800 rounded-lg">
-                  <div class="flex justify-between font-semibold text-amberWarning">
-                    <span>Tier 1: WMO-No.8 Physical Rules</span>
-                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10">Deterministic</span>
-                  </div>
-                  <p class="text-slate-400 mt-0.5 text-[11px]">Step rate-of-change, flatline checks, and absolute physical boundaries.</p>
+            <!-- Network Station Health Card -->
+            <div class="bg-cardBg border border-cardBorder rounded-xl p-4 space-y-3 flex flex-col">
+              <div class="flex items-center justify-between pb-2 border-b border-cardBorder">
+                <div class="flex items-center space-x-2">
+                  <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i>
+                  <h3 class="text-sm font-bold text-white tracking-wide">Network Station Health</h3>
                 </div>
-                <div class="p-2.5 bg-slate-900/80 border border-slate-800 rounded-lg">
-                  <div class="flex justify-between font-semibold text-cyan-400">
-                    <span>Tier 2: Thermodynamic Models</span>
-                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/10">Physics-Informed</span>
-                  </div>
-                  <p class="text-slate-400 mt-0.5 text-[11px]">Magnus-Tetens dew point check & solar zenith radiation gating.</p>
-                </div>
-                <div class="p-2.5 bg-slate-900/80 border border-slate-800 rounded-lg">
-                  <div class="flex justify-between font-semibold text-purple-400">
-                    <span>Tier 3: Pure-NumPy Isolation Forest</span>
-                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10">Unsupervised ML</span>
-                  </div>
-                  <p class="text-slate-400 mt-0.5 text-[11px]">Multivariate Mahalanobis distances and rolling adaptive Z-scores.</p>
-                </div>
-                <div class="p-2.5 bg-slate-900/80 border border-slate-800 rounded-lg">
-                  <div class="flex justify-between font-semibold text-emeraldSuccess">
-                    <span>Tier 4: Spatial IDW Interpolation</span>
-                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10">Geospatial</span>
-                  </div>
-                  <p class="text-slate-400 mt-0.5 text-[11px]">Cross-station regional consistency with altitude lapse rate correction.</p>
-                </div>
+                <span id="network-station-count" class="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-rose-950/80 text-rose-300 border border-rose-800/60">
+                  16 Active
+                </span>
+              </div>
+
+              <!-- Table Headers -->
+              <div class="grid grid-cols-12 text-[11px] font-semibold text-slate-400 px-2 pb-1 border-b border-slate-800/80">
+                <div class="col-span-6">City Station</div>
+                <div class="col-span-3 text-center">Fault Rate</div>
+                <div class="col-span-3 text-right">Health Status</div>
+              </div>
+
+              <!-- Station Health List Items -->
+              <div id="network-station-health-list" class="space-y-2 overflow-y-auto max-h-[340px] custom-scrollbar pr-1">
+                <!-- Dynamically populated -->
               </div>
             </div>
           </div>
         </div>
       </div>
+
 
       <!-- ======================================================= -->
       <!-- TAB 2: TIME SERIES INSPECTOR                            -->

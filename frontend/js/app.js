@@ -662,14 +662,22 @@ class WeatherApp {
     try {
       const stepRes = await API.stepSimulation();
       
-      // Update simulation time banner
-      const d = new Date(stepRes.timestamp);
-      document.getElementById('sim-clock-display').innerText = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC';
+      // Update simulation time banner safely
+      const d = stepRes?.timestamp ? new Date(stepRes.timestamp) : new Date();
+      const clockStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' UTC';
+      
+      const clockEl = document.getElementById('sim-clock-display');
+      if (clockEl) clockEl.innerText = clockStr;
+
+      const netStatus = document.getElementById('sidebar-net-status');
+      if (netStatus) {
+        netStatus.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span>${clockStr}`;
+      }
 
       await this.refreshAllData();
 
       // Show toast if anomalies detected
-      if (stepRes.anomalies_detected > 0) {
+      if (stepRes && stepRes.anomalies_detected > 0) {
         this.showToast(`🚨 ${stepRes.anomalies_detected} New Anomaly detected across AWS stations!`, 'rose');
       } else {
         this.showToast(`✅ Simulation stepped (+15m). All stations operating normally.`, 'emerald');
@@ -684,6 +692,7 @@ class WeatherApp {
       }
     }
   }
+
 
   toggleAutoSimulation() {
     const btn = document.getElementById('btn-auto-sim');
@@ -1207,15 +1216,15 @@ class WeatherApp {
     }
 
     toast.innerHTML = `
-      <div class="flex items-center justify-between space-x-3 w-full">
-        <span class="flex-1 text-xs sm:text-sm font-medium leading-tight">${message}</span>
-        <button type="button" onclick="window.app.closeToast(event)" class="toast-close-btn ml-2 p-1 rounded hover:bg-white/20 text-current opacity-80 hover:opacity-100 transition cursor-pointer flex items-center justify-center font-bold text-xs w-6 h-6 leading-none shrink-0" title="Close warning">
+      <div class="flex items-center justify-between space-x-2 w-full">
+        <span class="flex-1 text-[11px] font-medium leading-tight">${message}</span>
+        <button type="button" onclick="window.app.closeToast(event)" class="toast-close-btn ml-1.5 p-0.5 rounded hover:bg-white/20 text-current opacity-70 hover:opacity-100 transition cursor-pointer flex items-center justify-center font-bold text-[10px] w-4 h-4 leading-none shrink-0" title="Close">
           ✕
         </button>
       </div>
     `;
 
-    toast.className = `fixed bottom-6 right-6 px-4 py-3 rounded-xl shadow-2xl z-50 text-sm font-semibold border transition-all duration-300 transform translate-y-0 opacity-100 max-w-lg pointer-events-auto flex items-center ${
+    toast.className = `fixed bottom-4 right-4 px-3 py-2 rounded-lg shadow-xl z-50 text-xs font-semibold border transition-all duration-200 transform translate-y-0 opacity-100 max-w-sm pointer-events-auto flex items-center ${
       color === 'rose' ? 'bg-rose-950 text-rose-200 border-rose-700' :
       color === 'amber' ? 'bg-amber-950 text-amber-200 border-amber-700' :
       color === 'emerald' ? 'bg-emerald-950 text-emerald-200 border-emerald-700' :
@@ -1224,8 +1233,9 @@ class WeatherApp {
 
     this.toastTimeout = setTimeout(() => {
       this.closeToast();
-    }, 5000);
+    }, 4000);
   }
+
 
   closeToast(e) {
     if (e && typeof e.stopPropagation === 'function') {

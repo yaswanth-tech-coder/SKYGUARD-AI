@@ -99,31 +99,18 @@
       </nav>
     </div>
 
-    <!-- Sidebar Metrics & Simulation Clock Footer -->
-    <div class="p-3.5 border-t border-cardBorder bg-slate-950/60 space-y-2.5 text-xs">
-      <div class="space-y-1 text-[11px] font-mono">
-        <div class="flex justify-between items-center text-slate-400">
-          <span>Inference Latency:</span>
-          <span class="text-emerald-400 font-bold">2.1 ms</span>
-        </div>
-        <div class="flex justify-between items-center text-slate-400">
-          <span>Throughput:</span>
-          <span class="text-cyan-400 font-bold">12.8 rps</span>
-        </div>
-        <div class="flex justify-between items-center text-slate-400">
-          <span>Network Status:</span>
-          <span id="sidebar-net-status" class="text-emerald-400 font-semibold flex items-center">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span>Live UTC
-          </span>
-        </div>
+    <!-- Simulation Clock Footer -->
+    <div class="p-4 border-t border-cardBorder bg-slate-950/40">
+      <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+        <span>Sim Clock</span>
+        <span class="text-emeraldSuccess font-mono flex items-center"><span class="w-2 h-2 rounded-full bg-emeraldSuccess animate-pulse mr-1.5"></span>Live UTC</span>
       </div>
-
-      <button type="button" onclick="window.app.toggleTheme()" class="w-full py-1.5 px-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-lg text-xs font-semibold flex items-center justify-center space-x-1.5 transition cursor-pointer" id="sidebar-theme-toggle-btn">
-        <i data-lucide="sun" class="w-3.5 h-3.5 text-amber-400"></i>
-        <span id="sidebar-theme-label">Switch to Light</span>
-      </button>
+      <div id="sim-clock-display" class="text-xs font-mono text-cyan-300 font-bold bg-cardBg px-3 py-2 rounded border border-cardBorder text-center">
+        Live UTC
+      </div>
     </div>
   </aside>
+
 
 
   <!-- ========================================================= -->

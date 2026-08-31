@@ -56,6 +56,17 @@ class WeatherApp {
       window.lucide.createIcons();
     }
 
+    // Live UTC Clock Ticker
+    const updateClock = () => {
+      const el = document.getElementById('sim-clock-display');
+      if (el) {
+        const now = new Date();
+        el.innerText = now.toUTCString().split(' ')[4] + ' UTC';
+      }
+    };
+    updateClock();
+    setInterval(updateClock, 1000);
+
     // Periodic Background Polling every 5 seconds
     setInterval(() => {
       if (!this.isAutoSimulating) {
@@ -63,6 +74,7 @@ class WeatherApp {
       }
     }, 5000);
   }
+
 
   initTheme() {
     const savedTheme = localStorage.getItem('skyguard_theme') || 'dark';

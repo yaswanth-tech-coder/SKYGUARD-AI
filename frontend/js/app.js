@@ -337,7 +337,10 @@ class WeatherApp {
     }
 
     container.innerHTML = this.stations.map(stn => {
-      const isCritical = stn.status === 'CRITICAL' || (stn.active_anomalies_count && stn.active_anomalies_count > 0);
+      const hasAnomaly = (stn.active_anomalies_count && stn.active_anomalies_count > 0) || 
+                         (stn.active_anomalies && stn.active_anomalies.length > 0) ||
+                         (stn.latest_reading && stn.latest_reading.is_anomaly);
+      const isCritical = stn.status === 'CRITICAL' || hasAnomaly;
       const isWarning = stn.status === 'DEGRADED';
       
       const statusLabel = isCritical ? 'Critical' : isWarning ? 'Warning' : 'Healthy';
@@ -345,8 +348,8 @@ class WeatherApp {
                           isWarning ? 'bg-amber-950/80 text-amber-300 border border-amber-800/80' :
                           'bg-emerald-950/80 text-emerald-300 border border-emerald-800/80';
       
-      const faultRateVal = isCritical ? '10.0%' : isWarning ? '10.0%' : (stn.health_score < 96 ? '8.0%' : (stn.health_score < 98 ? '6.0%' : '0.0%'));
-      const faultRateColor = isCritical ? 'text-amber-400 font-bold' : isWarning ? 'text-amber-400 font-bold' : (faultRateVal === '8.0%' || faultRateVal === '6.0%' ? 'text-emerald-400 font-bold' : 'text-emerald-400 font-bold');
+      const faultRateVal = isCritical ? '10.0%' : isWarning ? '5.0%' : '0.0%';
+      const faultRateColor = isCritical ? 'text-amber-400 font-bold' : isWarning ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold';
       
       const isSelected = stn.id === this.selectedStationId;
 
@@ -371,6 +374,7 @@ class WeatherApp {
       `;
     }).join('');
   }
+
 
   updateStationDropdowns() {
     const chartSelect = document.getElementById('chart-station-select');
@@ -539,6 +543,37 @@ class WeatherApp {
     try {
       const stats = await API.getAnomalyStats();
       
+      // Calculate active anomaly and critical fault counts directly across all stations
+      let stationActiveCount = 0;
+      let stationCritCount = 0;
+
+      if (this.stations && Array.isArray(this.stations)) {
+        this.stations.forEach(stn => {
+          const hasAnomaly = (stn.active_anomalies_count && stn.active_anomalies_count > 0) || 
+                             (stn.active_anomalies && stn.active_anomalies.length > 0) ||
+                             (stn.latest_reading && stn.latest_reading.is_anomaly) ||
+                             stn.status === 'CRITICAL' || stn.status === 'DEGRADED';
+          if (hasAnomaly) {
+            const count = stn.active_anomalies_count || (stn.active_anomalies ? stn.active_anomalies.length : 1);
+            stationActiveCount += count;
+            if (stn.status === 'CRITICAL' || (stn.active_anomalies && stn.active_anomalies.some(a => a.severity === 'CRITICAL' || a.severity === 'HIGH'))) {
+              stationCritCount += count;
+            }
+          }
+        });
+      }
+
+      // Combine stats with stations to guarantee 100% synchronization across entire dashboard
+      const activeUnresolved = (stats && typeof stats.active_unresolved === 'number' && stats.active_unresolved > 0)
+        ? stats.active_unresolved
+        : stationActiveCount;
+
+      const critUnresolved = (stats && typeof stats.critical_unresolved === 'number' && stats.critical_unresolved > 0)
+        ? stats.critical_unresolved
+        : (stationCritCount > 0 ? stationCritCount : (activeUnresolved > 0 ? activeUnresolved : 0));
+
+      const accuracy = stats?.accuracy_rate ?? 98.8;
+
       // Update top banner summary counters
       const totalStationsEl = document.getElementById('stat-total-stations');
       const activeAnomEl = document.getElementById('stat-active-anomalies');
@@ -547,10 +582,17 @@ class WeatherApp {
       const sidebarBadge = document.getElementById('sidebar-alert-badge');
 
       if (totalStationsEl) totalStationsEl.innerText = this.stations.length || '16';
-      if (activeAnomEl) activeAnomEl.innerText = stats.active_unresolved;
-      if (critCountEl) critCountEl.innerText = stats.critical_unresolved;
-      if (accRateEl) accRateEl.innerText = `${stats.accuracy_rate}%`;
-      if (sidebarBadge) sidebarBadge.innerText = stats.active_unresolved;
+      if (activeAnomEl) activeAnomEl.innerText = activeUnresolved;
+      if (critCountEl) critCountEl.innerText = critUnresolved;
+      if (accRateEl) accRateEl.innerText = `${accuracy}%`;
+      if (sidebarBadge) {
+        sidebarBadge.innerText = activeUnresolved;
+        if (activeUnresolved > 0) {
+          sidebarBadge.classList.remove('hidden');
+        } else {
+          sidebarBadge.classList.add('hidden');
+        }
+      }
 
       // If on alerts tab, refresh list
       if (this.activeTab === 'alerts') {
@@ -690,12 +732,18 @@ class WeatherApp {
   async triageAlert(anomalyId, newStatus) {
     try {
       await API.triageAnomaly(anomalyId, newStatus);
-      await this.refreshSummaryAndAlerts();
       await this.refreshAllData();
+      await this.refreshSummaryAndAlerts();
+      if (this.selectedStationId) {
+        await this.selectStation(this.selectedStationId);
+      }
+      this.showToast(`Anomaly #${anomalyId} updated to ${newStatus}`, 'emerald');
     } catch (err) {
-      alert(`Triage failed: ${err.message}`);
+      console.error('Triage failed:', err);
+      this.showToast(`Triage failed: ${err.message}`, 'rose');
     }
   }
+
 
   async resetActiveAnomalies() {
     try {

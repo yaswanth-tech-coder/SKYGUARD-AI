@@ -9,22 +9,22 @@ const API = {
   // Embedded Static Data & Simulation Engine for Netlify
   _mockData: {
     stations: [
-      { id: "AWS-IND-01", code: "DELHI-NCR", name: "National Capital NCR Urban AWS", city: "Delhi", latitude: 28.6139, longitude: 77.2090, elevation_m: 216.0, climate_zone: "Northern Gangetic Plain", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.8, solar_charge_w: 16.2 },
-      { id: "AWS-IND-02", code: "MUM-KONKAN", name: "Mumbai Arabian Sea Maritime AWS", city: "Mumbai", latitude: 19.0760, longitude: 72.8777, elevation_m: 14.0, climate_zone: "Tropical Monsoon Coastal (Konkan)", status: "OPERATIONAL", health_score: 96.1, battery_voltage: 12.5, solar_charge_w: 18.0 },
-      { id: "AWS-IND-03", code: "CHENNAI-CORO", name: "Coromandel Coastal Maritime AWS", city: "Chennai", latitude: 13.0827, longitude: 80.2707, elevation_m: 6.0, climate_zone: "Coromandel Coastal Belt", status: "OPERATIONAL", health_score: 95.0, battery_voltage: 13.1, solar_charge_w: 22.4 },
-      { id: "AWS-IND-04", code: "KOL-SUNDARBAN", name: "Kolkata Gangetic Delta AWS", city: "Kolkata", latitude: 22.5726, longitude: 88.3639, elevation_m: 9.0, climate_zone: "Lower Gangetic Delta", status: "OPERATIONAL", health_score: 97.2, battery_voltage: 13.4, solar_charge_w: 24.1 },
-      { id: "AWS-IND-05", code: "BLR-MYSORE", name: "Bengaluru Tech Plateau AWS", city: "Bengaluru", latitude: 12.9716, longitude: 77.5946, elevation_m: 920.0, climate_zone: "South Deccan Plateau", status: "OPERATIONAL", health_score: 96.8, battery_voltage: 12.9, solar_charge_w: 21.0 },
-      { id: "AWS-IND-06", code: "HYD-DECCAN", name: "Hyderabad Deccan Plateau AWS", city: "Hyderabad", latitude: 17.3850, longitude: 78.4867, elevation_m: 542.0, climate_zone: "Central Deccan Plateau", status: "OPERATIONAL", health_score: 94.5, battery_voltage: 12.4, solar_charge_w: 17.5 },
-      { id: "AWS-IND-07", code: "AMD-GULF", name: "Ahmedabad Sabarmati Basin AWS", city: "Ahmedabad", latitude: 23.0225, longitude: 72.5714, elevation_m: 53.0, climate_zone: "Hot Semi-Arid Gujarat Plain", status: "OPERATIONAL", health_score: 99.0, battery_voltage: 13.0, solar_charge_w: 20.2 },
-      { id: "AWS-IND-08", code: "SXR-HIMALAYA", name: "Srinagar Western Himalayas AWS", city: "Srinagar", latitude: 34.0837, longitude: 74.7973, elevation_m: 1585.0, climate_zone: "Western Himalayan Alpine", status: "OPERATIONAL", health_score: 97.0, battery_voltage: 12.6, solar_charge_w: 15.8 },
-      { id: "AWS-IND-09", code: "SML-PIRPANJAL", name: "Shimla Lesser Himalayas AWS", city: "Shimla", latitude: 31.1048, longitude: 77.1734, elevation_m: 2276.0, climate_zone: "Montane Subtropical", status: "OPERATIONAL", health_score: 96.0, battery_voltage: 12.7, solar_charge_w: 19.4 },
-      { id: "AWS-IND-10", code: "LEH-LADAKH", name: "Ladakh High Altitude Cold Desert AWS", city: "Leh Ladakh", latitude: 34.1526, longitude: 77.5771, elevation_m: 3500.0, climate_zone: "Trans-Himalayan Cold Desert", status: "OPERATIONAL", health_score: 98.5, battery_voltage: 12.8, solar_charge_w: 20.0 },
-      { id: "AWS-IND-11", code: "PATNA-GANGA", name: "Patna Bihar Plains AWS", city: "Patna", latitude: 25.5941, longitude: 85.1376, elevation_m: 53.0, climate_zone: "Middle Gangetic Floodplain", status: "OPERATIONAL", health_score: 95.8, battery_voltage: 12.9, solar_charge_w: 21.5 },
-      { id: "AWS-IND-12", code: "BPL-VINDHYA", name: "Bhopal Central Highlands AWS", city: "Bhopal", latitude: 23.2599, longitude: 77.4126, elevation_m: 527.0, climate_zone: "Central Highlands & Vindhyas", status: "OPERATIONAL", health_score: 94.0, battery_voltage: 12.5, solar_charge_w: 16.0 },
-      { id: "AWS-IND-13", code: "KOCHI-MALABAR", name: "Kochi Marine Gateway AWS", city: "Kochi", latitude: 9.9312, longitude: 76.2673, elevation_m: 4.0, climate_zone: "Malabar Tropical Coast", status: "OPERATIONAL", health_score: 96.5, battery_voltage: 12.7, solar_charge_w: 18.5 },
-      { id: "AWS-IND-14", code: "SHL-KHASI", name: "Cherrapunji Khasi Hills AWS", city: "Cherrapunji", latitude: 25.2702, longitude: 91.7323, elevation_m: 1430.0, climate_zone: "Subtropical Monsoon Highlands", status: "OPERATIONAL", health_score: 97.5, battery_voltage: 12.4, solar_charge_w: 14.8 },
-      { id: "AWS-IND-15", code: "MAHABALESHWAR", name: "Western Ghats Orographic AWS", city: "Mahabaleshwar", latitude: 17.9237, longitude: 73.6586, elevation_m: 1353.0, climate_zone: "Western Ghats High Escarpment", status: "OPERATIONAL", health_score: 97.0, battery_voltage: 12.8, solar_charge_w: 17.2 },
-      { id: "AWS-IND-16", code: "IXZ-ANDAMAN", name: "Port Blair Bay of Bengal AWS", city: "Port Blair", latitude: 11.6234, longitude: 92.7265, elevation_m: 16.0, climate_zone: "Tropical Maritime Island", status: "OPERATIONAL", health_score: 95.0, battery_voltage: 12.6, solar_charge_w: 19.0 }
+      { id: "AWS-IND-01", code: "DELHI-NCR", name: "National Capital NCR Urban AWS", city: "Delhi", latitude: 28.6139, longitude: 77.2090, elevation_m: 216.0, climate_zone: "Northern Gangetic Plain", status: "CRITICAL", health_score: 64.0, battery_voltage: 12.8, solar_charge_w: 16.2 },
+      { id: "AWS-IND-02", code: "MUM-KONKAN", name: "Mumbai Arabian Sea Maritime AWS", city: "Mumbai", latitude: 19.0760, longitude: 72.8777, elevation_m: 14.0, climate_zone: "Tropical Monsoon Coastal (Konkan)", status: "CRITICAL", health_score: 64.0, battery_voltage: 12.5, solar_charge_w: 18.0 },
+      { id: "AWS-IND-03", code: "CHENNAI-CORO", name: "Coromandel Coastal Maritime AWS", city: "Chennai", latitude: 13.0827, longitude: 80.2707, elevation_m: 6.0, climate_zone: "Coromandel Coastal Belt", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 13.1, solar_charge_w: 22.4 },
+      { id: "AWS-IND-04", code: "KOL-SUNDARBAN", name: "Kolkata Gangetic Delta AWS", city: "Kolkata", latitude: 22.5726, longitude: 88.3639, elevation_m: 9.0, climate_zone: "Lower Gangetic Delta", status: "CRITICAL", health_score: 64.0, battery_voltage: 13.4, solar_charge_w: 24.1 },
+      { id: "AWS-IND-05", code: "BLR-MYSORE", name: "Bengaluru Tech Plateau AWS", city: "Bengaluru", latitude: 12.9716, longitude: 77.5946, elevation_m: 920.0, climate_zone: "South Deccan Plateau", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.9, solar_charge_w: 21.0 },
+      { id: "AWS-IND-06", code: "HYD-DECCAN", name: "Hyderabad Deccan Plateau AWS", city: "Hyderabad", latitude: 17.3850, longitude: 78.4867, elevation_m: 542.0, climate_zone: "Central Deccan Plateau", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.4, solar_charge_w: 17.5 },
+      { id: "AWS-IND-07", code: "AMD-GULF", name: "Ahmedabad Sabarmati Basin AWS", city: "Ahmedabad", latitude: 23.0225, longitude: 72.5714, elevation_m: 53.0, climate_zone: "Hot Semi-Arid Gujarat Plain", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 13.0, solar_charge_w: 20.2 },
+      { id: "AWS-IND-08", code: "SXR-HIMALAYA", name: "Srinagar Western Himalayas AWS", city: "Srinagar", latitude: 34.0837, longitude: 74.7973, elevation_m: 1585.0, climate_zone: "Western Himalayan Alpine", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.6, solar_charge_w: 15.8 },
+      { id: "AWS-IND-09", code: "SML-PIRPANJAL", name: "Shimla Lesser Himalayas AWS", city: "Shimla", latitude: 31.1048, longitude: 77.1734, elevation_m: 2276.0, climate_zone: "Montane Subtropical", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.7, solar_charge_w: 19.4 },
+      { id: "AWS-IND-10", code: "LEH-LADAKH", name: "Ladakh High Altitude Cold Desert AWS", city: "Leh Ladakh", latitude: 34.1526, longitude: 77.5771, elevation_m: 3500.0, climate_zone: "Trans-Himalayan Cold Desert", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.8, solar_charge_w: 20.0 },
+      { id: "AWS-IND-11", code: "PATNA-GANGA", name: "Patna Bihar Plains AWS", city: "Patna", latitude: 25.5941, longitude: 85.1376, elevation_m: 53.0, climate_zone: "Middle Gangetic Floodplain", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.9, solar_charge_w: 21.5 },
+      { id: "AWS-IND-12", code: "BPL-VINDHYA", name: "Bhopal Central Highlands AWS", city: "Bhopal", latitude: 23.2599, longitude: 77.4126, elevation_m: 527.0, climate_zone: "Central Highlands & Vindhyas", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.5, solar_charge_w: 16.0 },
+      { id: "AWS-IND-13", code: "KOCHI-MALABAR", name: "Kochi Marine Gateway AWS", city: "Kochi", latitude: 9.9312, longitude: 76.2673, elevation_m: 4.0, climate_zone: "Malabar Tropical Coast", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.7, solar_charge_w: 18.5 },
+      { id: "AWS-IND-14", code: "SHL-KHASI", name: "Cherrapunji Khasi Hills AWS", city: "Cherrapunji", latitude: 25.2702, longitude: 91.7323, elevation_m: 1430.0, climate_zone: "Subtropical Monsoon Highlands", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.4, solar_charge_w: 14.8 },
+      { id: "AWS-IND-15", code: "MAHABALESHWAR", name: "Western Ghats Orographic AWS", city: "Mahabaleshwar", latitude: 17.9237, longitude: 73.6586, elevation_m: 1353.0, climate_zone: "Western Ghats High Escarpment", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.8, solar_charge_w: 17.2 },
+      { id: "AWS-IND-16", code: "IXZ-ANDAMAN", name: "Port Blair Bay of Bengal AWS", city: "Port Blair", latitude: 11.6234, longitude: 92.7265, elevation_m: 16.0, climate_zone: "Tropical Maritime Island", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.6, solar_charge_w: 19.0 }
     ],
     anomalies: [
       {
@@ -35,7 +35,7 @@ const API = {
         timestamp: new Date().toISOString(),
         sensor: "temperature_c",
         anomaly_type: "SPIKE",
-        severity: "HIGH",
+        severity: "CRITICAL",
         confidence_score: 0.94,
         raw_value: 53.50,
         expected_range: "19.50 to 31.50 °C",
@@ -56,7 +56,7 @@ const API = {
         timestamp: new Date(Date.now() - 900000).toISOString(),
         sensor: "humidity_pct",
         anomaly_type: "SENSOR_DRIFT",
-        severity: "HIGH",
+        severity: "CRITICAL",
         confidence_score: 0.91,
         raw_value: 88.50,
         expected_range: "25.0 to 45.0 %",
@@ -77,7 +77,7 @@ const API = {
         timestamp: new Date(Date.now() - 1800000).toISOString(),
         sensor: "wind_speed_ms",
         anomaly_type: "FROZEN_SENSOR",
-        severity: "MEDIUM",
+        severity: "CRITICAL",
         confidence_score: 0.88,
         raw_value: 0.00,
         expected_range: "3.5 to 14.0 m/s",
@@ -146,10 +146,11 @@ const API = {
       };
       stn.active_anomalies = openAnoms;
       stn.active_anomalies_count = openAnoms.length;
-      stn.status = activeAnom ? (activeAnom.severity === 'CRITICAL' ? 'CRITICAL' : 'DEGRADED') : 'OPERATIONAL';
-      stn.health_score = activeAnom ? (activeAnom.severity === 'CRITICAL' ? 64.0 : 78.5) : 98.4;
+      stn.status = activeAnom ? 'CRITICAL' : 'OPERATIONAL';
+      stn.health_score = activeAnom ? 64.0 : 98.4;
     });
   },
+
 
   async getLatestStations() {
     return this._fetchOrFallback(`${this.baseUrl}/api/stations/latest`, {}, () => {
@@ -303,10 +304,27 @@ const API = {
       body: JSON.stringify({ status, triage_notes: triageNotes })
     }, () => {
       const target = this._mockData.anomalies.find(a => a.id === anomalyId);
-      if (target) target.status = status;
+      if (target) {
+        target.status = status;
+        const remainingForStn = this._mockData.anomalies.filter(a => a.station_id === target.station_id && a.status === 'DETECTED');
+        const stn = this._mockData.stations.find(s => s.id === target.station_id);
+        if (stn) {
+          stn.active_anomalies_count = remainingForStn.length;
+          stn.active_anomalies = remainingForStn;
+          if (remainingForStn.length === 0) {
+            stn.status = 'OPERATIONAL';
+            stn.health_score = 98.4;
+            if (stn.latest_reading) {
+              stn.latest_reading.is_anomaly = false;
+              stn.latest_reading.active_anomaly = null;
+            }
+          }
+        }
+      }
       return { status: "UPDATED", anomaly_id: anomalyId, new_status: status };
     });
   },
+
 
   async resetActiveAnomalies() {
     return this._fetchOrFallback(`${this.baseUrl}/api/anomalies/reset`, {

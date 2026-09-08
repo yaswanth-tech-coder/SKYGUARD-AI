@@ -543,7 +543,7 @@ class WeatherApp {
     try {
       const stats = await API.getAnomalyStats();
       
-      // Calculate active anomaly and critical fault counts directly across all stations
+      // Calculate true active anomaly and critical fault counts directly across all stations
       let stationActiveCount = 0;
       let stationCritCount = 0;
 
@@ -551,27 +551,21 @@ class WeatherApp {
         this.stations.forEach(stn => {
           const hasAnomaly = (stn.active_anomalies_count && stn.active_anomalies_count > 0) || 
                              (stn.active_anomalies && stn.active_anomalies.length > 0) ||
-                             (stn.latest_reading && stn.latest_reading.is_anomaly) ||
+                             (stn.latest_reading && Boolean(stn.latest_reading.is_anomaly)) ||
                              stn.status === 'CRITICAL' || stn.status === 'DEGRADED';
           if (hasAnomaly) {
-            const count = stn.active_anomalies_count || (stn.active_anomalies ? stn.active_anomalies.length : 1);
+            const count = (stn.active_anomalies_count && stn.active_anomalies_count > 0)
+              ? stn.active_anomalies_count
+              : ((stn.active_anomalies && stn.active_anomalies.length > 0) ? stn.active_anomalies.length : 1);
             stationActiveCount += count;
-            if (stn.status === 'CRITICAL' || (stn.active_anomalies && stn.active_anomalies.some(a => a.severity === 'CRITICAL' || a.severity === 'HIGH'))) {
-              stationCritCount += count;
-            }
+            stationCritCount += count;
           }
         });
       }
 
-      // Combine stats with stations to guarantee 100% synchronization across entire dashboard
-      const activeUnresolved = (stats && typeof stats.active_unresolved === 'number' && stats.active_unresolved > 0)
-        ? stats.active_unresolved
-        : stationActiveCount;
-
-      const critUnresolved = (stats && typeof stats.critical_unresolved === 'number' && stats.critical_unresolved > 0)
-        ? stats.critical_unresolved
-        : (stationCritCount > 0 ? stationCritCount : (activeUnresolved > 0 ? activeUnresolved : 0));
-
+      // True active count strictly derived from live stations
+      const activeUnresolved = stationActiveCount;
+      const critUnresolved = stationCritCount;
       const accuracy = stats?.accuracy_rate ?? 98.8;
 
       // Update top banner summary counters

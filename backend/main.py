@@ -350,16 +350,23 @@ def update_anomaly_status(
     if req.status.upper() in ["ACKNOWLEDGED", "RESOLVED"]:
         anom.acknowledged_at = datetime.datetime.now(datetime.timezone.utc)
 
-    # Update station health score if resolving
+    # Update station health score based on remaining detected anomalies
     stn = db.query(Station).filter(Station.id == anom.station_id).first()
     if stn:
-        if req.status.upper() == "RESOLVED":
-            stn.health_score = min(100.0, stn.health_score + 2.0)
-            if stn.health_score >= 80.0:
-                stn.status = "OPERATIONAL"
+        remaining_detected = db.query(AnomalyEvent).filter(
+            AnomalyEvent.station_id == anom.station_id,
+            AnomalyEvent.status == "DETECTED"
+        ).count()
+        if remaining_detected == 0:
+            stn.health_score = 100.0
+            stn.status = "OPERATIONAL"
+        else:
+            stn.health_score = 64.0
+            stn.status = "CRITICAL"
 
     db.commit()
     return anom.to_dict()
+
 
 
 @app.post("/api/anomalies/reset")

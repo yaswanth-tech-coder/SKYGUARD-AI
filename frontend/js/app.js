@@ -20,10 +20,11 @@ class WeatherApp {
     this.alertFilters = {
       station_id: '',
       severity: '',
-      status: '',
+      status: 'DETECTED',
       anomaly_type: ''
     };
   }
+
 
   async init() {
     // Initialize Leaflet Map

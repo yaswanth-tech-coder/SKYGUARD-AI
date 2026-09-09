@@ -55,6 +55,7 @@ app = FastAPI(
 # Configure CORS for Frontend and Local Development
 ALLOWED_ORIGINS = [
     "https://skyguard-ai.netlify.app",
+    "https://skyguard-ai-7lge.onrender.com",
     "http://localhost:3000",
     "http://localhost:8000",
     "http://localhost:5173",

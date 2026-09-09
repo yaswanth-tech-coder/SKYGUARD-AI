@@ -34,10 +34,22 @@ app = FastAPI(
 )
 
 
-# CORS middleware for development flexibility
+# CORS middleware for development flexibility and cross-domain production frontend
+ALLOWED_ORIGINS = [
+    "https://skyguard-ai.netlify.app",
+    "https://skyguard-ai-7lge.onrender.com",
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:5173",
+    "*"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -94,17 +94,82 @@ const API = {
     faults: []
   },
 
+  _wakeProbeRunning: false,
+
+  _scheduleBackendWakeProbe() {
+    if (this._wakeProbeRunning) return;
+    this._wakeProbeRunning = true;
+
+    const probe = async () => {
+      try {
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 4000) : null;
+        const ping = await fetch(`${this.baseUrl}/api/health`, {
+          signal: controller ? controller.signal : undefined
+        }).catch(() => null);
+        if (timeoutId) clearTimeout(timeoutId);
+
+        if (ping && ping.ok) {
+          console.info('[SkyGuard Sentinel] Cloud backend service is now AWAKE! Resuming live API stream.');
+          this.useClientFallback = false;
+          this._wakeProbeRunning = false;
+          if (typeof window !== 'undefined' && window.app && typeof window.app.refreshAllData === 'function') {
+            window.app.refreshAllData().catch(() => {});
+          }
+          return;
+        }
+      } catch (e) {
+        // Still waking up
+      }
+      setTimeout(probe, 10000);
+    };
+
+    setTimeout(probe, 6000);
+  },
+
   async _fetchOrFallback(url, options = {}, fallbackFn) {
     if (!this.useClientFallback) {
       try {
-        const res = await fetch(url, options);
-        if (res.ok) return await res.json();
+        // Use 5.5s timeout so sleeping free cloud instances never hang the browser UI
+        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), 5500) : null;
+
+        const fetchOptions = {
+          ...options,
+          signal: controller ? controller.signal : undefined
+        };
+
+        const res = await fetch(url, fetchOptions).catch(netErr => {
+          throw new Error(netErr.name === 'AbortError' 
+            ? 'Backend waking up from cold sleep (request timeout)' 
+            : (netErr.message || 'Network unreachable'));
+        });
+
+        if (timeoutId) clearTimeout(timeoutId);
+
+        if (res && res.ok) {
+          const json = await res.json().catch(jsonErr => {
+            throw new Error('Failed to parse JSON response: ' + jsonErr.message);
+          });
+          this.useClientFallback = false;
+          return json;
+        } else {
+          const statusText = res ? `${res.status} ${res.statusText}` : 'Empty response';
+          throw new Error(`Server returned non-200 status: ${statusText}`);
+        }
       } catch (err) {
-        console.warn('Backend API connection unavailable, switching to Netlify Cloud Static Mode:', err);
+        console.warn(`[SkyGuard Sentinel] Backend temporarily waking up / unreachable at ${url} (${err.message}). Using client-side fallback data.`, err);
         this.useClientFallback = true;
+        this._scheduleBackendWakeProbe();
       }
     }
-    return fallbackFn ? fallbackFn() : null;
+
+    try {
+      return fallbackFn ? fallbackFn() : null;
+    } catch (fallbackErr) {
+      console.error('[SkyGuard Sentinel] Fallback generator error:', fallbackErr);
+      return null;
+    }
   },
 
   _syncStationLiveReadings() {

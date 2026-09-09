@@ -50,7 +50,7 @@ class WeatherApp {
     this.renderRecentInjections();
 
     // Initial Data Fetch
-    await this.refreshAllData();
+    await this.refreshAllData().catch(err => console.warn('Initial data refresh warning:', err));
 
     // Render Lucide icons
     if (window.lucide) {
@@ -233,43 +233,49 @@ class WeatherApp {
   }
 
   switchTab(tabKey, element = null) {
-    this.activeTab = tabKey;
+    try {
+      this.activeTab = tabKey;
 
-    // Update Sidebar Navigation Buttons
-    document.querySelectorAll('.sidebar-btn').forEach(b => {
-      if (b.dataset.tab === tabKey || b === element) {
-        b.classList.add('active');
-      } else {
-        b.classList.remove('active');
+      // Update Sidebar Navigation Buttons
+      document.querySelectorAll('.sidebar-btn').forEach(b => {
+        if (b.dataset.tab === tabKey || b === element) {
+          b.classList.add('active');
+        } else {
+          b.classList.remove('active');
+        }
+      });
+
+      // Update Tab Contents
+      document.querySelectorAll('.tab-content').forEach(view => {
+        view.classList.remove('active');
+      });
+      const targetView = document.getElementById(`view-${tabKey}`);
+      if (targetView) targetView.classList.add('active');
+
+      // Re-render Lucide icons safely
+      if (window.lucide) {
+        try { window.lucide.createIcons(); } catch (e) {}
       }
-    });
 
-    // Update Tab Contents
-    document.querySelectorAll('.tab-content').forEach(view => {
-      view.classList.remove('active');
-    });
-    const targetView = document.getElementById(`view-${tabKey}`);
-    if (targetView) targetView.classList.add('active');
-
-    // Re-render Lucide icons
-    if (window.lucide) {
-      window.lucide.createIcons();
-    }
-
-    // Trigger Map resize or chart update if needed
-    if (tabKey === 'map') {
-      if (this.mapEngine === 'plotly') {
-        this.loadPlotlyMap();
-      } else if (this.mapManager && this.mapManager.map) {
-        setTimeout(() => this.mapManager.map.invalidateSize(), 150);
+      // Trigger Map resize or chart update with safe .catch() handlers
+      if (tabKey === 'map') {
+        if (this.mapEngine === 'plotly') {
+          Promise.resolve(this.loadPlotlyMap()).catch(err => console.warn('Plotly map load warning:', err));
+        } else if (this.mapManager && this.mapManager.map) {
+          setTimeout(() => {
+            try { this.mapManager.map.invalidateSize(); } catch (e) {}
+          }, 150);
+        }
+      } else if (tabKey === 'charts') {
+        Promise.resolve(this.loadStationChartData()).catch(err => console.warn('Charts load warning:', err));
+      } else if (tabKey === 'alerts') {
+        Promise.resolve(this.loadAlertsFeed()).catch(err => console.warn('Alerts load warning:', err));
+      } else if (tabKey === 'models') {
+        Promise.resolve(this.loadModelMetrics()).catch(err => console.warn('Metrics load warning:', err));
+        Promise.resolve(this.loadPlotly3dScatter()).catch(err => console.warn('3D scatter load warning:', err));
       }
-    } else if (tabKey === 'charts') {
-      this.loadStationChartData();
-    } else if (tabKey === 'alerts') {
-      this.loadAlertsFeed();
-    } else if (tabKey === 'models') {
-      this.loadModelMetrics();
-      this.loadPlotly3dScatter();
+    } catch (navErr) {
+      console.warn(`[SkyGuard UI] Protected tab navigation caught exception for tab '${tabKey}':`, navErr);
     }
   }
 
@@ -611,7 +617,7 @@ class WeatherApp {
       if (fStat && this.alertFilters.status === undefined) this.alertFilters.status = fStat.value;
       if (fTyp && this.alertFilters.anomaly_type === undefined) this.alertFilters.anomaly_type = fTyp.value;
 
-      const anomalies = await API.getAnomalies(this.alertFilters);
+      const anomalies = (await API.getAnomalies(this.alertFilters)) || [];
       const feedContainer = document.getElementById('alerts-feed-list');
       if (!feedContainer) return;
 
@@ -1177,7 +1183,7 @@ class WeatherApp {
 
   async loadModelMetrics() {
     try {
-      const data = await API.getModelMetrics();
+      const data = (await API.getModelMetrics()) || {};
       
       // Confusion matrix counts (Safe Null-Check)
       const cm = data.confusion_matrix;
@@ -1267,6 +1273,7 @@ class WeatherApp {
       if (!plotlyContainer || typeof Plotly === 'undefined') return;
 
       const fig = await API.getPlotlyMap();
+      if (!fig || !fig.data || !fig.layout) return;
       
       // Configure layout aesthetics according to active theme
       const isLight = document.body.classList.contains('light');

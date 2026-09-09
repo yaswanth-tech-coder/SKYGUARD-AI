@@ -3,7 +3,17 @@
  * Supports both Live FastAPI Backend and Standalone Netlify Cloud Static Mode.
  */
 const API = {
-  baseUrl: (typeof window !== 'undefined' && (window.API_BASE_URL || localStorage.getItem('skyguard_api_url'))) || 'https://skyguard-ai-7lge.onrender.com',
+  baseUrl: (() => {
+    if (typeof window !== 'undefined') {
+      if (window.API_BASE_URL) return window.API_BASE_URL;
+      const stored = localStorage.getItem('skyguard_api_url');
+      if (stored && !stored.includes('localhost:8000')) return stored;
+      if (stored && stored.includes('localhost:8000') && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        try { localStorage.removeItem('skyguard_api_url'); } catch (e) {}
+      }
+    }
+    return 'https://skyguard-ai-7lge.onrender.com';
+  })(),
   useClientFallback: false,
 
   // Embedded Static Data & Simulation Engine for Netlify

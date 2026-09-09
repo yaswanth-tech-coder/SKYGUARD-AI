@@ -3,7 +3,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 DB_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(DB_DIR, "weather_aws.db")
+DB_PATH = os.path.join(DB_DIR, "weather_aws.db").replace("\\", "/")
+
+try:
+    os.makedirs(DB_DIR, exist_ok=True)
+except Exception:
+    pass
 
 raw_db_url = os.getenv("DATABASE_URL", f"sqlite:///{DB_PATH}")
 # Fix heroku/render postgres:// scheme to postgresql://
@@ -36,9 +41,18 @@ def init_db():
     import backend.models  # Ensure models are loaded into Base.metadata
     Base.metadata.create_all(bind=engine)
     if DATABASE_URL.startswith("sqlite"):
-        with engine.connect() as connection:
-            connection.exec_driver_sql("PRAGMA journal_mode=WAL;")
-            connection.exec_driver_sql("PRAGMA foreign_keys=ON;")
+        try:
+            with engine.connect() as connection:
+                try:
+                    connection.exec_driver_sql("PRAGMA journal_mode=WAL;")
+                except Exception:
+                    pass
+                try:
+                    connection.exec_driver_sql("PRAGMA foreign_keys=ON;")
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
 
 def get_db():

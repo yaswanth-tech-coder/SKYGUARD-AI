@@ -650,11 +650,12 @@ with tab_csv:
 
     else:
         st.info("💡 You can also test with the pre-generated benchmark sample: `datasets/sample_aws_data.csv`.")
-        if os.path.exists("datasets/sample_aws_data.csv"):
-            with open("datasets/sample_aws_data.csv", "rb") as f:
+        sample_csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "datasets", "sample_aws_data.csv")
+        if os.path.exists(sample_csv_path):
+            with open(sample_csv_path, "rb") as f:
                 st.download_button(
                     label="📥 Download Sample AWS Test CSV (5,000 observations)",
-                    data=f,
+                    data=f.read(),
                     file_name="sample_aws_data.csv",
                     mime="text/csv"
                 )

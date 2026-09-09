@@ -161,6 +161,10 @@ const API = {
         console.warn(`[SkyGuard Sentinel] Backend temporarily waking up / unreachable at ${url} (${err.message}). Using client-side fallback data.`, err);
         this.useClientFallback = true;
         this._scheduleBackendWakeProbe();
+        if (typeof window !== 'undefined' && window.app && typeof window.app.showToast === 'function' && !window.app._hasShownWakeToast) {
+          window.app._hasShownWakeToast = true;
+          window.app.showToast('☁️ Cloud backend waking up (~30s cold start). Live simulation active!', 'amber');
+        }
       }
     }
 
@@ -220,20 +224,31 @@ const API = {
 
 
   async getLatestStations() {
-    return this._fetchOrFallback(`${this.baseUrl}/api/stations/latest`, {}, () => {
-      this._syncStationLiveReadings();
+    try {
+      return await this._fetchOrFallback(`${this.baseUrl}/api/stations/latest`, {}, () => {
+        this._syncStationLiveReadings();
+        return { stations: this._mockData.stations };
+      }).catch(err => {
+        console.warn('[SkyGuard Sentinel] getLatestStations error caught:', err);
+        return { stations: this._mockData.stations };
+      });
+    } catch (e) {
       return { stations: this._mockData.stations };
-    });
+    }
   },
 
   async getStations() {
     this._syncStationLiveReadings();
-    const res = await this._fetchOrFallback(`${this.baseUrl}/api/stations/latest`, {}, () => {
-      this._syncStationLiveReadings();
-      return this._mockData.stations;
-    });
+    try {
+      const res = await this._fetchOrFallback(`${this.baseUrl}/api/stations/latest`, {}, () => {
+        this._syncStationLiveReadings();
+        return this._mockData.stations;
+      }).catch(err => {
+        console.warn('[SkyGuard Sentinel] getStations error caught:', err);
+        return this._mockData.stations;
+      });
 
-    if (res && res.stations && Array.isArray(res.stations)) {
+      if (res && res.stations && Array.isArray(res.stations)) {
       return res.stations.map((stn, idx) => {
         const isAnom = Boolean(stn.is_anomaly);
         const temp = stn.temperature ?? 25.0;
@@ -290,6 +305,10 @@ const API = {
     }
     if (Array.isArray(res)) return res;
     return this._mockData.stations;
+    } catch (err) {
+      console.warn('[SkyGuard Sentinel] getStations caught exception:', err);
+      return this._mockData.stations;
+    }
   },
 
   async getStationDetail(stationId) {

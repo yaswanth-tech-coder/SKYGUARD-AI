@@ -27,53 +27,67 @@ class WeatherApp {
 
 
   async init() {
-    // Initialize Leaflet Map
-    this.mapManager = new StationMap('map-container', (stationId) => {
-      this.selectStation(stationId);
-    });
-    this.mapManager.init();
+    try {
+      // Initialize Leaflet Map
+      try {
+        this.mapManager = new StationMap('map-container', (stationId) => {
+          this.selectStation(stationId);
+        });
+        this.mapManager.init();
+      } catch (mapErr) {
+        console.warn('Map initialization warning:', mapErr);
+      }
 
-    // Initialize Chart.js
-    this.chartsManager = new TelemetryCharts('telemetryChart');
-    this.chartsManager.init();
+      // Initialize Chart.js
+      try {
+        this.chartsManager = new TelemetryCharts('telemetryChart');
+        this.chartsManager.init();
+      } catch (chartErr) {
+        console.warn('Charts initialization warning:', chartErr);
+      }
 
-    // Initialize Theme Mode (Dark vs Light)
-    this.initTheme();
+      // Initialize Theme Mode (Dark vs Light)
+      try { this.initTheme(); } catch (e) {}
 
-    // Bind Event Listeners
-    this.bindEvents();
+      // Bind Event Listeners
+      try { this.bindEvents(); } catch (e) {}
 
-    // Initialize Fault Studio Sliders and Live Preview
-    this.initFaultSliders();
+      // Initialize Fault Studio Sliders and Live Preview
+      try { this.initFaultSliders(); } catch (e) {}
 
-    // Render initial empty recent injections state
-    this.renderRecentInjections();
+      // Render initial empty recent injections state
+      try { this.renderRecentInjections(); } catch (e) {}
 
-    // Initial Data Fetch
-    await this.refreshAllData().catch(err => console.warn('Initial data refresh warning:', err));
+      // Initial Data Fetch with .catch() wrapper so sleeping backend never freezes the page
+      await this.refreshAllData().catch(err => console.warn('[SkyGuard UI] Initial data refresh warning (backend waking up):', err));
 
-    // Render Lucide icons
-    if (window.lucide) {
-      window.lucide.createIcons();
+      // Render Lucide icons
+      if (window.lucide) {
+        try { window.lucide.createIcons(); } catch (e) {}
+      }
+
+      // Live UTC Clock Ticker
+      const updateClock = () => {
+        const el = document.getElementById('sim-clock-display');
+        if (el) {
+          const now = new Date();
+          el.innerText = now.toUTCString().split(' ')[4] + ' UTC';
+        }
+      };
+      updateClock();
+      setInterval(updateClock, 1000);
+
+      // Periodic Background Polling every 5 seconds with safe catch
+      setInterval(() => {
+        if (!this.isAutoSimulating) {
+          Promise.resolve(this.refreshSummaryAndAlerts()).catch(err => {
+            console.warn('[SkyGuard UI] Periodic summary refresh caught:', err);
+          });
+        }
+      }, 5000);
+    } catch (initErr) {
+      console.error('[SkyGuard UI] App init caught error:', initErr);
     }
-
-    // Live UTC Clock Ticker
-    const updateClock = () => {
-      const el = document.getElementById('sim-clock-display');
-      if (el) {
-        const now = new Date();
-        el.innerText = now.toUTCString().split(' ')[4] + ' UTC';
-      }
-    };
-    updateClock();
-    setInterval(updateClock, 1000);
-
-    // Periodic Background Polling every 5 seconds
-    setInterval(() => {
-      if (!this.isAutoSimulating) {
-        this.refreshSummaryAndAlerts();
-      }
-    }, 5000);
   }
 
 
@@ -159,11 +173,17 @@ class WeatherApp {
 
 
   bindEvents() {
-    // Tab Navigation
-    document.querySelectorAll('.nav-tab-btn').forEach(btn => {
+    // Tab Navigation for both .sidebar-btn and .nav-tab-btn
+    document.querySelectorAll('.sidebar-btn, .nav-tab-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const tabKey = e.currentTarget.dataset.tab;
-        this.switchTab(tabKey);
+        if (tabKey) {
+          try {
+            this.switchTab(tabKey, e.currentTarget);
+          } catch (tabErr) {
+            console.warn('[SkyGuard UI] Tab navigation caught:', tabErr);
+          }
+        }
       });
     });
 
@@ -171,63 +191,76 @@ class WeatherApp {
     const btnLeaflet = document.getElementById('btn-map-leaflet');
     const btnPlotly = document.getElementById('btn-map-plotly');
     if (btnLeaflet && btnPlotly) {
-      btnLeaflet.addEventListener('click', () => this.setMapEngine('leaflet'));
-      btnPlotly.addEventListener('click', () => this.setMapEngine('plotly'));
+      btnLeaflet.addEventListener('click', () => {
+        try { this.setMapEngine('leaflet'); } catch (e) { console.warn(e); }
+      });
+      btnPlotly.addEventListener('click', () => {
+        try { this.setMapEngine('plotly'); } catch (e) { console.warn(e); }
+      });
     }
 
     // Channel Selector Buttons (Charts View)
     document.querySelectorAll('.channel-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active', 'bg-blue-600', 'text-white'));
-        e.currentTarget.classList.add('active', 'bg-blue-600', 'text-white');
-        this.currentChannel = e.currentTarget.dataset.channel;
-        this.loadStationChartData();
+        try {
+          document.querySelectorAll('.channel-btn').forEach(b => b.classList.remove('active', 'bg-blue-600', 'text-white'));
+          e.currentTarget.classList.add('active', 'bg-blue-600', 'text-white');
+          this.currentChannel = e.currentTarget.dataset.channel;
+          Promise.resolve(this.loadStationChartData()).catch(err => console.warn('Chart data load warning:', err));
+        } catch (e) {
+          console.warn('Channel select warning:', e);
+        }
       });
     });
-
 
     // Station Dropdown Change
     const stnSelect = document.getElementById('chart-station-select');
     if (stnSelect) {
       stnSelect.addEventListener('change', (e) => {
-        this.selectStation(e.target.value);
+        Promise.resolve(this.selectStation(e.target.value)).catch(err => console.warn('Select station error:', err));
       });
     }
 
     // Step Simulation Button
     const btnStep = document.getElementById('btn-step-sim');
     if (btnStep) {
-      btnStep.addEventListener('click', () => this.stepSimulation());
+      btnStep.addEventListener('click', () => {
+        Promise.resolve(this.stepSimulation()).catch(err => console.warn('Step sim error:', err));
+      });
     }
 
     // Auto Simulation Toggle Button
     const btnAuto = document.getElementById('btn-auto-sim');
     if (btnAuto) {
-      btnAuto.addEventListener('click', () => this.toggleAutoSimulation());
+      btnAuto.addEventListener('click', () => {
+        try { this.toggleAutoSimulation(); } catch (e) { console.warn(e); }
+      });
     }
-
-
 
     // Fault Injection Form Submit
     const formInject = document.getElementById('fault-inject-form');
     if (formInject) {
       formInject.addEventListener('submit', (e) => {
         e.preventDefault();
-        this.handleFaultInjection();
+        Promise.resolve(this.handleFaultInjection()).catch(err => console.warn('Fault injection error:', err));
       });
     }
 
     // Clear Faults Button
     const btnClearFaults = document.getElementById('btn-clear-faults');
     if (btnClearFaults) {
-      btnClearFaults.addEventListener('click', () => this.clearAllFaults());
+      btnClearFaults.addEventListener('click', () => {
+        Promise.resolve(this.clearAllFaults()).catch(err => console.warn('Clear faults error:', err));
+      });
     }
 
     // Alert Filter Dropdowns
     ['filter-station', 'filter-severity', 'filter-status', 'filter-type'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
-        el.addEventListener('change', () => this.applyAlertFilters());
+        el.addEventListener('change', () => {
+          try { this.applyAlertFilters(); } catch (e) { console.warn(e); }
+        });
       }
     });
   }
@@ -327,16 +360,21 @@ class WeatherApp {
 
   async refreshAllData() {
     try {
-      this.stations = await API.getStations();
+      this.stations = (await API.getStations().catch(err => {
+        console.warn('[SkyGuard UI] getStations error caught:', err);
+        return [];
+      })) || [];
       this.updateStationDropdowns();
-      this.mapManager.updateStations(this.stations);
+      if (this.mapManager && typeof this.mapManager.updateStations === 'function') {
+        try { this.mapManager.updateStations(this.stations); } catch (e) {}
+      }
       this.renderNetworkStationHealth();
       if (this.mapEngine === 'plotly') {
-        this.loadPlotlyMap();
+        Promise.resolve(this.loadPlotlyMap()).catch(e => console.warn(e));
       }
-      await this.refreshSummaryAndAlerts();
+      await this.refreshSummaryAndAlerts().catch(e => console.warn(e));
       if (this.activeTab === 'charts') {
-        await this.loadStationChartData();
+        await this.loadStationChartData().catch(e => console.warn(e));
       }
     } catch (err) {
       console.error('Error refreshing all data:', err);
@@ -422,27 +460,34 @@ class WeatherApp {
   }
 
   async selectStation(stationId) {
-    this.selectedStationId = stationId;
-    const stn = this.stations.find(s => s.id === stationId);
-    if (!stn) return;
+    try {
+      this.selectedStationId = stationId;
+      const stn = this.stations.find(s => s.id === stationId);
+      if (!stn) return;
 
-    // Update Dropdown value
-    const chartSelect = document.getElementById('chart-station-select');
-    if (chartSelect) chartSelect.value = stationId;
+      // Update Dropdown value
+      const chartSelect = document.getElementById('chart-station-select');
+      if (chartSelect) chartSelect.value = stationId;
 
-    // Update Station Details Card & Network Health List active styling
-    this.updateStationDetailCard(stn);
-    this.renderNetworkStationHealth();
+      // Update Station Details Card & Network Health List active styling
+      this.updateStationDetailCard(stn);
+      this.renderNetworkStationHealth();
 
-    // If on map, focus it
-    if (this.mapManager) {
-      this.mapManager.focusStation(stationId, this.stations);
-    }
+      // If on map, focus it
+      if (this.mapManager && typeof this.mapManager.focusStation === 'function') {
+        try {
+          this.mapManager.focusStation(stationId, this.stations);
+        } catch (mapErr) {
+          console.warn('Map focus warning:', mapErr);
+        }
+      }
 
-
-    // Refresh charts if on charts tab
-    if (this.activeTab === 'charts') {
-      await this.loadStationChartData();
+      // Refresh charts if on charts tab
+      if (this.activeTab === 'charts') {
+        await this.loadStationChartData().catch(e => console.warn(e));
+      }
+    } catch (err) {
+      console.error('Error in selectStation:', err);
     }
   }
 
@@ -565,8 +610,13 @@ class WeatherApp {
   async loadStationChartData() {
     if (!this.selectedStationId) return;
     try {
-      const readings = await API.getStationReadings(this.selectedStationId, 80);
-      this.chartsManager.updateReadings(readings, this.currentChannel);
+      const readings = (await API.getStationReadings(this.selectedStationId, 80).catch(err => {
+        console.warn('[SkyGuard UI] getStationReadings caught:', err);
+        return [];
+      })) || [];
+      if (this.chartsManager && typeof this.chartsManager.updateReadings === 'function') {
+        this.chartsManager.updateReadings(readings, this.currentChannel);
+      }
     } catch (err) {
       console.error('Error loading chart data:', err);
     }
@@ -574,7 +624,10 @@ class WeatherApp {
 
   async refreshSummaryAndAlerts() {
     try {
-      const stats = await API.getAnomalyStats();
+      const stats = await API.getAnomalyStats().catch(err => {
+        console.warn('[SkyGuard UI] getAnomalyStats caught:', err);
+        return null;
+      });
       
       // Calculate true active anomaly and critical fault counts directly across all stations
       let stationActiveCount = 0;
@@ -621,9 +674,9 @@ class WeatherApp {
         }
       }
 
-      // If on alerts tab, refresh list
+      // If on alerts tab, refresh list safely
       if (this.activeTab === 'alerts') {
-        this.loadAlertsFeed();
+        Promise.resolve(this.loadAlertsFeed()).catch(e => console.warn(e));
       }
 
     } catch (err) {
@@ -643,7 +696,10 @@ class WeatherApp {
       if (fStat && this.alertFilters.status === undefined) this.alertFilters.status = fStat.value;
       if (fTyp && this.alertFilters.anomaly_type === undefined) this.alertFilters.anomaly_type = fTyp.value;
 
-      const anomalies = (await API.getAnomalies(this.alertFilters)) || [];
+      const anomalies = (await API.getAnomalies(this.alertFilters).catch(err => {
+        console.warn('[SkyGuard UI] getAnomalies caught:', err);
+        return [];
+      })) || [];
       const feedContainer = document.getElementById('alerts-feed-list');
       if (!feedContainer) return;
 
@@ -1195,21 +1251,24 @@ class WeatherApp {
 
   async clearAllFaults() {
     try {
-      await API.clearFaults();
+      await API.clearFaults().catch(e => console.warn('clearFaults catch:', e));
       this.showToast('🧹 All active synthetic faults cleared.', 'blue');
-      await this.stepSimulation();
-      await this.refreshSummaryAndAlerts();
-      await this.refreshAllData();
-      await this.loadAlertsFeed();
+      await this.stepSimulation().catch(e => console.warn(e));
+      await this.refreshSummaryAndAlerts().catch(e => console.warn(e));
+      await this.refreshAllData().catch(e => console.warn(e));
+      await this.loadAlertsFeed().catch(e => console.warn(e));
     } catch (err) {
-      alert(`Clear error: ${err.message}`);
+      this.showToast(`Clear error: ${err.message}`, 'rose');
     }
   }
 
 
   async loadModelMetrics() {
     try {
-      const data = (await API.getModelMetrics()) || {};
+      const data = (await API.getModelMetrics().catch(err => {
+        console.warn('API.getModelMetrics catch:', err);
+        return {};
+      })) || {};
       
       // Confusion matrix counts (Safe Null-Check)
       const cm = data.confusion_matrix;
@@ -1234,22 +1293,27 @@ class WeatherApp {
         try {
           if (typeof Plotly !== 'undefined') {
             const isLight = document.body.classList.contains('light');
-            const figFeat = await API.getPlotlyFeatureImportance();
-            figFeat.layout = figFeat.layout || {};
-            figFeat.layout.autosize = true;
-            figFeat.layout.paper_bgcolor = 'rgba(0,0,0,0)';
-            figFeat.layout.plot_bgcolor = 'rgba(0,0,0,0)';
-            figFeat.layout.font = { color: isLight ? '#0f172a' : '#f8fafc', family: 'Inter, sans-serif' };
-
-            await Plotly.react(featChartContainer, figFeat.data, figFeat.layout, {
-              responsive: true,
-              displayModeBar: false
+            const figFeat = await API.getPlotlyFeatureImportance().catch(err => {
+              console.warn('API.getPlotlyFeatureImportance catch:', err);
+              return null;
             });
-            setTimeout(() => {
-              if (typeof Plotly !== 'undefined' && featChartContainer) {
-                Plotly.Plots.resize(featChartContainer);
-              }
-            }, 100);
+            if (figFeat && figFeat.data) {
+              figFeat.layout = figFeat.layout || {};
+              figFeat.layout.autosize = true;
+              figFeat.layout.paper_bgcolor = 'rgba(0,0,0,0)';
+              figFeat.layout.plot_bgcolor = 'rgba(0,0,0,0)';
+              figFeat.layout.font = { color: isLight ? '#0f172a' : '#f8fafc', family: 'Inter, sans-serif' };
+
+              await Plotly.react(featChartContainer, figFeat.data, figFeat.layout, {
+                responsive: true,
+                displayModeBar: false
+              });
+              setTimeout(() => {
+                if (typeof Plotly !== 'undefined' && featChartContainer) {
+                  try { Plotly.Plots.resize(featChartContainer); } catch (e) {}
+                }
+              }, 100);
+            }
           }
         } catch (chartErr) {
           console.error('Error rendering Plotly feature chart:', chartErr);
@@ -1298,7 +1362,10 @@ class WeatherApp {
       const plotlyContainer = document.getElementById('plotly-map-container');
       if (!plotlyContainer || typeof Plotly === 'undefined') return;
 
-      const fig = await API.getPlotlyMap();
+      const fig = await API.getPlotlyMap().catch(err => {
+        console.warn('API.getPlotlyMap catch:', err);
+        return null;
+      });
       if (!fig || !fig.data || !fig.layout) return;
       
       // Configure layout aesthetics according to active theme
@@ -1341,7 +1408,10 @@ class WeatherApp {
       const container3d = document.getElementById('plotly-3d-container');
       if (!container3d || typeof Plotly === 'undefined') return;
 
-      const fig = await API.getPlotly3dScatter();
+      const fig = await API.getPlotly3dScatter().catch(err => {
+        console.warn('API.getPlotly3dScatter catch:', err);
+        return null;
+      });
       if (!fig || !fig.data || fig.data.length === 0) return;
 
       const isLight = document.body.classList.contains('light');
@@ -1436,8 +1506,33 @@ class WeatherApp {
 
 
 
-// Instantiate on load
+// Instant safe placeholder so inline onclick handlers never fail even before DOM is fully ready
+if (typeof window !== 'undefined') {
+  window.app = window.app || {
+    switchTab: function(tabKey, element) {
+      try {
+        document.querySelectorAll('.sidebar-btn').forEach(b => {
+          if (b.dataset.tab === tabKey || b === element) b.classList.add('active');
+          else b.classList.remove('active');
+        });
+        document.querySelectorAll('.tab-content').forEach(v => v.classList.remove('active'));
+        const t = document.getElementById('view-' + tabKey);
+        if (t) t.classList.add('active');
+      } catch (e) {}
+    },
+    resetMapView: function() {},
+    setTheme: function() {}
+  };
+}
+
+// Instantiate on load with try/catch and .catch()
 window.addEventListener('DOMContentLoaded', () => {
-  window.app = new WeatherApp();
-  window.app.init();
+  try {
+    window.app = new WeatherApp();
+    window.app.init().catch(err => {
+      console.warn('[SkyGuard UI] App init caught warning (backend waking up):', err);
+    });
+  } catch (bootstrapErr) {
+    console.error('[SkyGuard UI] App bootstrap error:', bootstrapErr);
+  }
 });

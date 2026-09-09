@@ -212,7 +212,13 @@
                 <span class="text-[11px] text-slate-400">(16 Stations • IDW Spatial Consensus)</span>
               </div>
               
-              <div class="flex items-center space-x-3">
+              <div class="flex items-center space-x-2.5">
+                <!-- Reset View Button -->
+                <button id="btn-reset-map-view" onclick="window.app.resetMapView()" class="px-2.5 py-1 rounded font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-cyan-500 transition cursor-pointer flex items-center space-x-1.5 shadow-sm text-xs" title="Reset map to Pan-India view">
+                  <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-cyan-400"></i>
+                  <span>Reset View</span>
+                </button>
+
                 <!-- Map Engine Toggle -->
                 <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs">
                   <button id="btn-map-leaflet" class="px-2.5 py-1 rounded font-bold bg-blue-600 text-white transition cursor-pointer">
@@ -508,13 +514,16 @@
             <div class="bg-cardBg border border-cardBorder p-4 rounded-xl space-y-2.5">
               <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">4. Fault Severity Classification</h4>
               <div class="flex flex-wrap gap-2" id="severity-pills-container">
-                <button type="button" onclick="window.app.selectSeverityPill('AUTO', this)" class="severity-pill-btn active px-4 py-2 bg-cyan-950/60 border border-cyan-500 text-cyan-300 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm">
+                <button type="button" onclick="window.app.selectSeverityPill('AUTO', this)" class="severity-pill-btn active px-3.5 py-2 bg-cyan-950/60 border border-cyan-500 text-cyan-300 rounded-lg text-xs font-semibold transition cursor-pointer shadow-sm">
                   Auto
                 </button>
-                <button type="button" onclick="window.app.selectSeverityPill('WARNING', this)" class="severity-pill-btn px-4 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold transition cursor-pointer">
+                <button type="button" onclick="window.app.selectSeverityPill('WARNING', this)" class="severity-pill-btn px-3.5 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold transition cursor-pointer">
                   Warning
                 </button>
-                <button type="button" onclick="window.app.selectSeverityPill('CRITICAL', this)" class="severity-pill-btn px-4 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold transition cursor-pointer">
+                <button type="button" onclick="window.app.selectSeverityPill('HIGH', this)" class="severity-pill-btn px-3.5 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold transition cursor-pointer">
+                  High
+                </button>
+                <button type="button" onclick="window.app.selectSeverityPill('CRITICAL', this)" class="severity-pill-btn px-3.5 py-2 bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg text-xs font-semibold transition cursor-pointer">
                   Critical
                 </button>
               </div>

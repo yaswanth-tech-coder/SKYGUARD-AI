@@ -423,7 +423,8 @@ def inject_synthetic_fault(req: FaultInjectionRequest):
         anomaly_type=req.anomaly_type,
         sensor=req.sensor,
         magnitude=req.magnitude,
-        duration_steps=req.duration_steps
+        duration_steps=req.duration_steps,
+        severity=req.severity
     )
     return res
 
@@ -490,13 +491,26 @@ def advance_simulation_step(db: Session = Depends(get_db)):
             neighbor_stations_with_readings=neighbor_data
         )
 
+        # Check if station has active injected fault with explicit severity
+        active_fault_sev = None
+        if stn.id in simulator.active_faults and simulator.active_faults[stn.id]:
+            for f in simulator.active_faults[stn.id]:
+                f_sev = f.get("severity")
+                if f_sev and f_sev != "AUTO":
+                    active_fault_sev = f_sev
+                    break
+
+        if active_fault_sev and anomalies:
+            for anom in anomalies:
+                anom["severity"] = active_fault_sev
+
         # Update station status & health
         stn.last_seen = current_simulation_time
         if anomalies:
             crit_count = sum(1 for a in anomalies if a["severity"] == "CRITICAL")
-            high_count = sum(1 for a in anomalies if a["severity"] == "HIGH")
-            stn.health_score = max(30.0, stn.health_score - (crit_count * 8.0 + high_count * 4.0))
-            stn.status = "CRITICAL" if crit_count > 0 else "DEGRADED" if high_count > 0 else stn.status
+            warn_count = sum(1 for a in anomalies if a["severity"] in ["HIGH", "WARNING", "MEDIUM"])
+            stn.health_score = max(30.0, stn.health_score - (crit_count * 8.0 + warn_count * 4.0))
+            stn.status = "CRITICAL" if crit_count > 0 else "DEGRADED"
         else:
             # Gradual health recovery
             stn.health_score = min(100.0, stn.health_score + 0.5)

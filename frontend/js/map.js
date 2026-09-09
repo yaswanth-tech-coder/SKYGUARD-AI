@@ -78,6 +78,39 @@ class StationMap {
       collapsed: true
     }).addTo(this.map);
 
+    // Leaflet Reset View Control Button
+    const ResetControl = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd: (map) => {
+        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+        const btn = L.DomUtil.create('a', '', container);
+        btn.innerHTML = '⟲';
+        btn.title = 'Reset Map View (Pan-India Topology)';
+        btn.href = '#';
+        btn.style.fontSize = '18px';
+        btn.style.fontWeight = 'bold';
+        btn.style.textAlign = 'center';
+        btn.style.lineHeight = '30px';
+        btn.style.width = '30px';
+        btn.style.height = '30px';
+        btn.style.cursor = 'pointer';
+        btn.style.backgroundColor = '#0f172a';
+        btn.style.color = '#38bdf8';
+        btn.style.border = '1px solid #334155';
+        btn.style.borderRadius = '4px';
+        L.DomEvent.on(btn, 'click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          L.DomEvent.preventDefault(e);
+          this.resetView();
+          if (window.app && typeof window.app.showToast === 'function') {
+            window.app.showToast('🗺️ Map view reset to Pan-India topology.', 'cyan');
+          }
+        });
+        return container;
+      }
+    });
+    this.map.addControl(new ResetControl());
+
     // Add Indian Detailed Cities & Regional Macro-Badges
     this.renderDetailedIndianCities();
     this.renderIndianRegionLabels();
@@ -270,8 +303,16 @@ class StationMap {
 
     // Update or add station markers with glowing pulse pins
     stations.forEach(stn => {
-      const isCritical = stn.status === 'CRITICAL' || (stn.active_anomalies_count && stn.active_anomalies_count > 0);
-      const isDegraded = stn.status === 'DEGRADED';
+      const activeAnoms = stn.active_anomalies || (stn.latest_reading?.active_anomaly ? [stn.latest_reading.active_anomaly] : []);
+      const highestSev = activeAnoms.reduce((acc, a) => {
+        const s = (a.severity || 'WARNING').toUpperCase();
+        if (s === 'CRITICAL') return 'CRITICAL';
+        if (s === 'HIGH' || s === 'WARNING' || s === 'MEDIUM') return acc === 'CRITICAL' ? 'CRITICAL' : 'WARNING';
+        return acc;
+      }, 'NONE');
+
+      const isCritical = stn.status === 'CRITICAL' || highestSev === 'CRITICAL';
+      const isDegraded = stn.status === 'DEGRADED' || stn.status === 'WARNING' || highestSev === 'WARNING';
       
       let statusColor = '#10b981'; // Green (Operational)
       let pulseClass = 'pulse-operational';
@@ -279,7 +320,7 @@ class StationMap {
         statusColor = '#f43f5e'; // Rose (Critical)
         pulseClass = 'pulse-critical';
       } else if (isDegraded) {
-        statusColor = '#f59e0b'; // Amber (Degraded)
+        statusColor = '#f59e0b'; // Amber (Degraded / Warning)
         pulseClass = 'pulse-warning';
       }
 
@@ -320,18 +361,24 @@ class StationMap {
 
       let anomalyBannerHtml = '';
       if (activeAnom) {
+        const sev = (activeAnom.severity || 'WARNING').toUpperCase();
+        const isCrit = sev === 'CRITICAL';
+        const bannerBorder = isCrit ? 'border-rose-600 bg-rose-950/90' : 'border-amber-600 bg-amber-950/90';
+        const badgeBorder = isCrit ? 'bg-rose-900 text-rose-200 border-rose-700' : 'bg-amber-900 text-amber-200 border-amber-700';
+        const faultyColor = isCrit ? 'text-rose-400' : 'text-amber-400';
+
         anomalyBannerHtml = `
-          <div class="mt-2.5 p-2.5 bg-rose-950/90 border border-rose-600 rounded-lg text-xs space-y-1.5 shadow-md">
+          <div class="mt-2.5 p-2.5 ${bannerBorder} border rounded-lg text-xs space-y-1.5 shadow-md">
             <div class="flex items-center justify-between">
-              <span class="font-bold text-rose-300 flex items-center space-x-1">
-                <span>🚨</span>
+              <span class="font-bold text-slate-100 flex items-center space-x-1">
+                <span>${isCrit ? '🚨' : '⚠️'}</span>
                 <span>${activeAnom.anomaly_type || 'ANOMALY DETECTED'}</span>
               </span>
-              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-900 text-rose-200 border border-rose-700">${activeAnom.severity || 'CRITICAL'}</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${badgeBorder}">${sev}</span>
             </div>
             <div class="text-[11px] text-slate-200 flex justify-between">
               <span>Channel: <strong class="text-white">${activeAnom.sensor}</strong></span>
-              <span>Faulty: <strong class="text-rose-400 font-mono font-bold">${activeAnom.injected_value || activeAnom.raw_value}</strong></span>
+              <span>Faulty: <strong class="${faultyColor} font-mono font-bold">${activeAnom.injected_value || activeAnom.raw_value}</strong></span>
             </div>
             <div class="text-[10px] text-slate-300 italic">
               ${activeAnom.root_cause || activeAnom.explanation || 'Sensor transducer calibration drift'}
@@ -407,6 +454,13 @@ class StationMap {
       if (this.markers[stationId]) {
         this.markers[stationId].openPopup();
       }
+    }
+  }
+
+  resetView(center = [22.0, 80.5], zoom = 5) {
+    if (this.map) {
+      this.map.closePopup();
+      this.map.setView(center, zoom, { animate: true });
     }
   }
 }

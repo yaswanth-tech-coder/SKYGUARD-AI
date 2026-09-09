@@ -256,7 +256,8 @@ class WeatherTelemetrySimulator:
         anomaly_type: str,
         sensor: str,
         magnitude: float,
-        duration_steps: int = 5
+        duration_steps: int = 5,
+        severity: Optional[str] = "AUTO"
     ) -> Dict[str, Any]:
         """Register a new synthetic fault to be injected into future simulation timesteps."""
         if station_id not in self.active_faults:
@@ -268,7 +269,8 @@ class WeatherTelemetrySimulator:
             "magnitude": magnitude,
             "remaining_steps": duration_steps,
             "initial_magnitude": magnitude,
-            "current_step": 0
+            "current_step": 0,
+            "severity": (severity or "AUTO").upper()
         }
         self.active_faults[station_id].append(fault_entry)
         return {

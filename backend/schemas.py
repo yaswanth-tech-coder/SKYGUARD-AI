@@ -110,6 +110,7 @@ class FaultInjectionRequest(BaseModel):
         description="Magnitude of alteration (e.g. +15°C spike, or 1.4x drift factor, or stuck value)"
     )
     duration_steps: int = Field(default=5, description="Number of simulation timesteps the fault persists")
+    severity: Optional[str] = Field(default="AUTO", description="AUTO, CRITICAL, WARNING, HIGH, MEDIUM, LOW")
 
 
 class SimulationStepResponse(BaseModel):

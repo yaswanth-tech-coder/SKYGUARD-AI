@@ -316,6 +316,15 @@ class WeatherApp {
     }
   }
 
+  resetMapView() {
+    if (this.mapEngine === 'plotly') {
+      this.loadPlotlyMap().catch(() => {});
+    } else if (this.mapManager) {
+      this.mapManager.resetView();
+    }
+    this.showToast('🗺️ Map view reset to Pan-India topology.', 'cyan');
+  }
+
   async refreshAllData() {
     try {
       this.stations = await API.getStations();
@@ -344,11 +353,16 @@ class WeatherApp {
     }
 
     container.innerHTML = this.stations.map(stn => {
-      const hasAnomaly = (stn.active_anomalies_count && stn.active_anomalies_count > 0) || 
-                         (stn.active_anomalies && stn.active_anomalies.length > 0) ||
-                         (stn.latest_reading && stn.latest_reading.is_anomaly);
-      const isCritical = stn.status === 'CRITICAL' || hasAnomaly;
-      const isWarning = stn.status === 'DEGRADED';
+      const activeAnoms = stn.active_anomalies || (stn.latest_reading?.active_anomaly ? [stn.latest_reading.active_anomaly] : []);
+      const highestSev = activeAnoms.reduce((acc, a) => {
+        const s = (a.severity || 'WARNING').toUpperCase();
+        if (s === 'CRITICAL') return 'CRITICAL';
+        if (s === 'HIGH' || s === 'WARNING' || s === 'MEDIUM') return acc === 'CRITICAL' ? 'CRITICAL' : 'WARNING';
+        return acc;
+      }, 'NONE');
+
+      const isCritical = stn.status === 'CRITICAL' || highestSev === 'CRITICAL';
+      const isWarning = stn.status === 'DEGRADED' || stn.status === 'WARNING' || highestSev === 'WARNING';
       
       const statusLabel = isCritical ? 'Critical' : isWarning ? 'Warning' : 'Healthy';
       const statusClass = isCritical ? 'bg-rose-950/80 text-rose-300 border border-rose-800/80' :
@@ -356,7 +370,7 @@ class WeatherApp {
                           'bg-emerald-950/80 text-emerald-300 border border-emerald-800/80';
       
       const faultRateVal = isCritical ? '10.0%' : isWarning ? '5.0%' : '0.0%';
-      const faultRateColor = isCritical ? 'text-amber-400 font-bold' : isWarning ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold';
+      const faultRateColor = isCritical ? 'text-rose-400 font-bold' : isWarning ? 'text-amber-400 font-bold' : 'text-emerald-400 font-bold';
       
       const isSelected = stn.id === this.selectedStationId;
 
@@ -447,24 +461,36 @@ class WeatherApp {
 
     let anomalySectionHtml = '';
     if (activeAnom) {
+      const sev = (activeAnom.severity || 'WARNING').toUpperCase();
+      const isCrit = sev === 'CRITICAL';
+      const isWarn = sev === 'WARNING' || sev === 'HIGH' || sev === 'MEDIUM';
+
+      const bannerBg = isCrit ? 'bg-rose-950/80 border-rose-600/80' : isWarn ? 'bg-amber-950/80 border-amber-600/80' : 'bg-blue-950/80 border-blue-600/80';
+      const badgeClass = isCrit ? 'bg-rose-900 text-rose-200 border-rose-700' : isWarn ? 'bg-amber-900 text-amber-200 border-amber-700' : 'bg-blue-900 text-blue-200 border-blue-700';
+      const icon = isCrit ? '🚨' : '⚠️';
+      const headingColor = isCrit ? 'text-rose-300' : isWarn ? 'text-amber-300' : 'text-blue-300';
+      const faultyColor = isCrit ? 'text-rose-400' : isWarn ? 'text-amber-400' : 'text-blue-400';
+      const innerBorder = isCrit ? 'border-rose-900/60' : isWarn ? 'border-amber-900/60' : 'border-blue-900/60';
+      const triageBtnClass = isCrit ? 'bg-rose-600 hover:bg-rose-500' : 'bg-amber-600 hover:bg-amber-500';
+
       anomalySectionHtml = `
-        <div class="mt-3 p-3.5 bg-rose-950/80 border border-rose-600/80 rounded-xl space-y-2 text-xs shadow-inner">
+        <div class="mt-3 p-3.5 ${bannerBg} border rounded-xl space-y-2 text-xs shadow-inner">
           <div class="flex items-center justify-between">
-            <span class="font-bold text-rose-300 flex items-center space-x-1.5 text-xs">
-              <span>🚨</span>
+            <span class="font-bold ${headingColor} flex items-center space-x-1.5 text-xs">
+              <span>${icon}</span>
               <span>${activeAnom.anomaly_type || 'ANOMALY DETECTED'}</span>
             </span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-900 text-rose-200 border border-rose-700">${activeAnom.severity || 'CRITICAL'}</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold border ${badgeClass}">${sev}</span>
           </div>
 
-          <div class="grid grid-cols-2 gap-2 text-[11px] bg-slate-950/60 p-2 rounded-lg border border-rose-900/60">
+          <div class="grid grid-cols-2 gap-2 text-[11px] bg-slate-950/60 p-2 rounded-lg border ${innerBorder}">
             <div>
               <span class="text-slate-400 block text-[10px]">Flagged Channel</span>
               <span class="font-bold text-white font-mono">${activeAnom.sensor}</span>
             </div>
             <div>
               <span class="text-slate-400 block text-[10px]">Faulty Reading</span>
-              <span class="font-bold text-rose-400 font-mono text-xs">${activeAnom.injected_value || activeAnom.raw_value}</span>
+              <span class="font-bold ${faultyColor} font-mono text-xs">${activeAnom.injected_value || activeAnom.raw_value}</span>
             </div>
             <div>
               <span class="text-slate-400 block text-[10px]">ML Model</span>
@@ -483,7 +509,7 @@ class WeatherApp {
 
           <div class="pt-1 flex items-center justify-between gap-2">
             <span class="text-[10px] text-amber-400 italic">${activeAnom.action || 'Recalibrate sensor transducer'}</span>
-            <button onclick="window.app.alertFilters.station_id = '${stn.id}'; window.app.switchTab('alerts');" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[11px] font-semibold transition cursor-pointer shadow">
+            <button onclick="window.app.alertFilters.station_id = '${stn.id}'; window.app.switchTab('alerts');" class="px-2.5 py-1 ${triageBtnClass} text-white rounded text-[11px] font-semibold transition cursor-pointer shadow">
               Triage Alert →
             </button>
           </div>
@@ -1039,7 +1065,7 @@ class WeatherApp {
     const stn = this.stations.find(s => s.id === stnId);
 
     try {
-      await API.injectFault(stnId, anomType, sensor, magnitude, duration);
+      await API.injectFault(stnId, anomType, sensor, magnitude, duration, severity);
       this.showToast(`⚡ Physical fault injected into ${stnId}: ${anomType} (${rawVal} ${unit})! Running AI Sentinel...`, 'amber');
 
       // Log into Recent Injections

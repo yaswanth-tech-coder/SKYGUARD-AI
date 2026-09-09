@@ -10,9 +10,9 @@ const API = {
   _mockData: {
     stations: [
       { id: "AWS-IND-01", code: "DELHI-NCR", name: "National Capital NCR Urban AWS", city: "Delhi", latitude: 28.6139, longitude: 77.2090, elevation_m: 216.0, climate_zone: "Northern Gangetic Plain", status: "CRITICAL", health_score: 64.0, battery_voltage: 12.8, solar_charge_w: 16.2 },
-      { id: "AWS-IND-02", code: "MUM-KONKAN", name: "Mumbai Arabian Sea Maritime AWS", city: "Mumbai", latitude: 19.0760, longitude: 72.8777, elevation_m: 14.0, climate_zone: "Tropical Monsoon Coastal (Konkan)", status: "CRITICAL", health_score: 64.0, battery_voltage: 12.5, solar_charge_w: 18.0 },
+      { id: "AWS-IND-02", code: "MUM-KONKAN", name: "Mumbai Arabian Sea Maritime AWS", city: "Mumbai", latitude: 19.0760, longitude: 72.8777, elevation_m: 14.0, climate_zone: "Tropical Monsoon Coastal (Konkan)", status: "DEGRADED", health_score: 82.0, battery_voltage: 12.5, solar_charge_w: 18.0 },
       { id: "AWS-IND-03", code: "CHENNAI-CORO", name: "Coromandel Coastal Maritime AWS", city: "Chennai", latitude: 13.0827, longitude: 80.2707, elevation_m: 6.0, climate_zone: "Coromandel Coastal Belt", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 13.1, solar_charge_w: 22.4 },
-      { id: "AWS-IND-04", code: "KOL-SUNDARBAN", name: "Kolkata Gangetic Delta AWS", city: "Kolkata", latitude: 22.5726, longitude: 88.3639, elevation_m: 9.0, climate_zone: "Lower Gangetic Delta", status: "CRITICAL", health_score: 64.0, battery_voltage: 13.4, solar_charge_w: 24.1 },
+      { id: "AWS-IND-04", code: "KOL-SUNDARBAN", name: "Kolkata Gangetic Delta AWS", city: "Kolkata", latitude: 22.5726, longitude: 88.3639, elevation_m: 9.0, climate_zone: "Lower Gangetic Delta", status: "DEGRADED", health_score: 82.0, battery_voltage: 13.4, solar_charge_w: 24.1 },
       { id: "AWS-IND-05", code: "BLR-MYSORE", name: "Bengaluru Tech Plateau AWS", city: "Bengaluru", latitude: 12.9716, longitude: 77.5946, elevation_m: 920.0, climate_zone: "South Deccan Plateau", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.9, solar_charge_w: 21.0 },
       { id: "AWS-IND-06", code: "HYD-DECCAN", name: "Hyderabad Deccan Plateau AWS", city: "Hyderabad", latitude: 17.3850, longitude: 78.4867, elevation_m: 542.0, climate_zone: "Central Deccan Plateau", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 12.4, solar_charge_w: 17.5 },
       { id: "AWS-IND-07", code: "AMD-GULF", name: "Ahmedabad Sabarmati Basin AWS", city: "Ahmedabad", latitude: 23.0225, longitude: 72.5714, elevation_m: 53.0, climate_zone: "Hot Semi-Arid Gujarat Plain", status: "OPERATIONAL", health_score: 98.4, battery_voltage: 13.0, solar_charge_w: 20.2 },
@@ -56,7 +56,7 @@ const API = {
         timestamp: new Date(Date.now() - 900000).toISOString(),
         sensor: "humidity_pct",
         anomaly_type: "SENSOR_DRIFT",
-        severity: "CRITICAL",
+        severity: "HIGH",
         confidence_score: 0.91,
         raw_value: 88.50,
         expected_range: "25.0 to 45.0 %",
@@ -77,7 +77,7 @@ const API = {
         timestamp: new Date(Date.now() - 1800000).toISOString(),
         sensor: "wind_speed_ms",
         anomaly_type: "FROZEN_SENSOR",
-        severity: "CRITICAL",
+        severity: "WARNING",
         confidence_score: 0.88,
         raw_value: 0.00,
         expected_range: "3.5 to 14.0 m/s",
@@ -211,8 +211,10 @@ const API = {
       };
       stn.active_anomalies = openAnoms;
       stn.active_anomalies_count = openAnoms.length;
-      stn.status = activeAnom ? 'CRITICAL' : 'OPERATIONAL';
-      stn.health_score = activeAnom ? 64.0 : 98.4;
+      const isCrit = openAnoms.some(a => (a.severity || '').toUpperCase() === 'CRITICAL');
+      const isWarn = openAnoms.some(a => ['WARNING', 'HIGH', 'MEDIUM'].includes((a.severity || '').toUpperCase()));
+      stn.status = isCrit ? 'CRITICAL' : isWarn ? 'DEGRADED' : 'OPERATIONAL';
+      stn.health_score = isCrit ? 64.0 : isWarn ? 82.0 : 98.4;
     });
   },
 
@@ -340,7 +342,15 @@ const API = {
     return this._fetchOrFallback(`${this.baseUrl}/api/anomalies?${params.toString()}`, {}, () => {
       return this._mockData.anomalies.filter(a => {
         if (filters.station_id && a.station_id !== filters.station_id) return false;
-        if (filters.severity && a.severity !== filters.severity.toUpperCase()) return false;
+        if (filters.severity) {
+          const filterSev = filters.severity.toUpperCase();
+          const anomSev = (a.severity || '').toUpperCase();
+          if (filterSev === 'WARNING' || filterSev === 'HIGH') {
+            if (anomSev !== 'WARNING' && anomSev !== 'HIGH') return false;
+          } else if (anomSev !== filterSev) {
+            return false;
+          }
+        }
         if (filters.status && a.status !== filters.status.toUpperCase()) return false;
         if (filters.anomaly_type && a.anomaly_type !== filters.anomaly_type) return false;
         return true;
@@ -408,7 +418,7 @@ const API = {
     });
   },
 
-  async injectFault(stationId, anomalyType, sensor, magnitude, durationSteps = 5) {
+  async injectFault(stationId, anomalyType, sensor, magnitude, durationSteps = 5, severity = 'AUTO') {
     return this._fetchOrFallback(`${this.baseUrl}/api/simulate/inject`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -417,10 +427,11 @@ const API = {
         anomaly_type: anomalyType,
         sensor: sensor,
         magnitude: parseFloat(magnitude),
-        duration_steps: parseInt(durationSteps)
+        duration_steps: parseInt(durationSteps),
+        severity: severity
       })
     }, () => {
-      this._mockData.faults.push({ stationId, anomalyType, sensor, magnitude, durationSteps });
+      this._mockData.faults.push({ stationId, anomalyType, sensor, magnitude, durationSteps, severity });
       return { status: "INJECTED", station_id: stationId };
     });
   },
@@ -439,6 +450,25 @@ const API = {
         const base = fault.sensor === 'temperature_c' ? 28.5 : fault.sensor === 'humidity_pct' ? 55.0 : 1013.25;
         const faultyVal = (base + fault.magnitude).toFixed(2);
 
+        let assignedSeverity = 'CRITICAL';
+        if (fault.severity && fault.severity !== 'AUTO') {
+          assignedSeverity = fault.severity.toUpperCase();
+        } else {
+          const absMag = Math.abs(fault.magnitude);
+          if (fault.anomalyType === 'SPIKE') {
+            assignedSeverity = absMag >= 18.0 ? 'CRITICAL' : (absMag >= 8.0 ? 'HIGH' : 'WARNING');
+          } else if (fault.anomalyType === 'SENSOR_DRIFT') {
+            assignedSeverity = absMag >= 15.0 ? 'CRITICAL' : (absMag >= 6.0 ? 'HIGH' : 'WARNING');
+          } else if (fault.anomalyType === 'FROZEN_SENSOR') {
+            assignedSeverity = 'WARNING';
+          } else {
+            assignedSeverity = absMag >= 20.0 ? 'CRITICAL' : 'WARNING';
+          }
+        }
+
+        const isCrit = assignedSeverity === 'CRITICAL';
+        const isWarn = assignedSeverity === 'WARNING' || assignedSeverity === 'HIGH' || assignedSeverity === 'MEDIUM';
+
         this._mockData.anomalies.unshift({
           id: Math.floor(Math.random() * 90000) + 10000,
           station_id: stn.id,
@@ -447,12 +477,12 @@ const API = {
           timestamp: new Date().toISOString(),
           sensor: fault.sensor,
           anomaly_type: fault.anomalyType,
-          severity: Math.abs(fault.magnitude) > 20 ? "CRITICAL" : "HIGH",
-          confidence_score: 0.96,
+          severity: assignedSeverity,
+          confidence_score: isCrit ? 0.96 : 0.84,
           raw_value: parseFloat(faultyVal),
           expected_range: `${base.toFixed(1)} ${unit}`,
           ml_model: "Tier-1:Dynamic-StepLimit",
-          explanation: `Injected synthetic ${fault.anomalyType} fault with magnitude offset ${fault.magnitude > 0 ? '+' : ''}${fault.magnitude}${unit}.`,
+          explanation: `Injected synthetic ${fault.anomalyType} fault (${assignedSeverity}) with magnitude offset ${fault.magnitude > 0 ? '+' : ''}${fault.magnitude}${unit}.`,
           status: "DETECTED",
           drift: `${fault.anomalyType} (${faultyVal} ${unit})`,
           slope: "Instantaneous Step Rate-of-Change",
@@ -461,8 +491,8 @@ const API = {
           injected_value: `${faultyVal} ${unit}`
         });
         created = 1;
-        stn.status = "CRITICAL";
-        stn.health_score = 64.0;
+        stn.status = isCrit ? "CRITICAL" : (isWarn ? "DEGRADED" : "OPERATIONAL");
+        stn.health_score = isCrit ? 64.0 : (isWarn ? 82.0 : 98.4);
       } else {
         // Natural live stream background anomaly generation (~35% chance per step)
         if (Math.random() < 0.35) {

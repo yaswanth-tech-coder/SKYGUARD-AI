@@ -131,6 +131,9 @@ class WeatherApp {
     if (this.chartsManager && typeof this.chartsManager.setTheme === 'function') {
       this.chartsManager.setTheme(theme);
     }
+    if (this.mapEngine === 'plotly') {
+      this.loadPlotlyMap();
+    }
 
     // Refresh 3D Scatter & Model Metrics for active theme
     const container3d = document.getElementById('plotly-3d-container');
@@ -164,10 +167,12 @@ class WeatherApp {
       });
     });
 
-    // Leaflet Live Map Reset View Control
-    const btnResetView = document.getElementById('btn-reset-map-view');
-    if (btnResetView) {
-      btnResetView.addEventListener('click', () => this.resetMapView());
+    // Map Engine Toggle (Leaflet vs Plotly OpenStreetMap)
+    const btnLeaflet = document.getElementById('btn-map-leaflet');
+    const btnPlotly = document.getElementById('btn-map-plotly');
+    if (btnLeaflet && btnPlotly) {
+      btnLeaflet.addEventListener('click', () => this.setMapEngine('leaflet'));
+      btnPlotly.addEventListener('click', () => this.setMapEngine('plotly'));
     }
 
     // Channel Selector Buttons (Charts View)
@@ -254,7 +259,9 @@ class WeatherApp {
 
       // Trigger Map resize or chart update with safe .catch() handlers
       if (tabKey === 'map') {
-        if (this.mapManager && this.mapManager.map) {
+        if (this.mapEngine === 'plotly') {
+          Promise.resolve(this.loadPlotlyMap()).catch(err => console.warn('Plotly map load warning:', err));
+        } else if (this.mapManager && this.mapManager.map) {
           setTimeout(() => {
             try { this.mapManager.map.invalidateSize(); } catch (e) {}
           }, 150);
@@ -310,7 +317,9 @@ class WeatherApp {
   }
 
   resetMapView() {
-    if (this.mapManager) {
+    if (this.mapEngine === 'plotly') {
+      this.loadPlotlyMap().catch(() => {});
+    } else if (this.mapManager) {
       this.mapManager.resetView();
     }
     this.showToast('🗺️ Map view reset to Pan-India topology.', 'cyan');
@@ -322,6 +331,9 @@ class WeatherApp {
       this.updateStationDropdowns();
       this.mapManager.updateStations(this.stations);
       this.renderNetworkStationHealth();
+      if (this.mapEngine === 'plotly') {
+        this.loadPlotlyMap();
+      }
       await this.refreshSummaryAndAlerts();
       if (this.activeTab === 'charts') {
         await this.loadStationChartData();

@@ -213,19 +213,14 @@
               </div>
               
               <div class="flex items-center space-x-2.5">
-                <!-- Reset View Button -->
-                <button id="btn-reset-map-view" onclick="window.app.resetMapView()" class="px-2.5 py-1 rounded font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-cyan-500 transition cursor-pointer flex items-center space-x-1.5 shadow-sm text-xs" title="Reset map to Pan-India view">
-                  <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-cyan-400"></i>
-                  <span>Reset View</span>
-                </button>
-
-                <!-- Map Engine Toggle -->
-                <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs">
-                  <button id="btn-map-leaflet" class="px-2.5 py-1 rounded font-bold bg-blue-600 text-white transition cursor-pointer">
-                    🗺️ Leaflet Live
-                  </button>
-                  <button id="btn-map-plotly" class="px-2.5 py-1 rounded font-bold text-slate-400 hover:text-white transition cursor-pointer">
-                    📊 Plotly OpenStreetMap
+                <!-- Leaflet Live Tab with Integrated Reset View Button -->
+                <div class="flex items-center bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs shadow-inner">
+                  <span class="px-2.5 py-1 rounded font-bold bg-blue-600 text-white flex items-center space-x-1.5 shadow-sm select-none">
+                    <span>🗺️ Leaflet Live</span>
+                  </span>
+                  <button id="btn-reset-map-view" onclick="window.app.resetMapView()" class="ml-1.5 px-2.5 py-1 rounded font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-cyan-300 border border-slate-700 hover:border-cyan-500 transition cursor-pointer flex items-center space-x-1.5 shadow-sm" title="Reset map to Pan-India view">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    <span>Reset View</span>
                   </button>
                 </div>
 
@@ -239,8 +234,6 @@
 
             <!-- Leaflet Container -->
             <div id="map-container" class="flex-1 w-full min-h-[460px] bg-slate-950"></div>
-            <!-- Plotly Container -->
-            <div id="plotly-map-container" class="flex-1 w-full min-h-[460px] bg-slate-950 hidden"></div>
           </div>
           
           <!-- Right Col: Selected Station Detail Card & Defense Architecture -->

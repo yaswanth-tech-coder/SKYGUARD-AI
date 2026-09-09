@@ -116,6 +116,19 @@ class StationMap {
     this.renderIndianRegionLabels();
   }
 
+  /**
+   * Reset Map to Default Pan-India Topology
+   */
+  resetView(center = [22.0, 80.5], zoom = 5) {
+    if (!this.map) return;
+    try {
+      this.map.closePopup();
+      this.map.setView(center, zoom, { animate: true, duration: 0.8 });
+    } catch (e) {
+      console.warn('Map resetView warning:', e);
+    }
+  }
+
   setTheme(theme) {
     if (!this.map || !this.darkCanvasGroup || !this.openStreetMap) return;
     if (theme === 'light') {

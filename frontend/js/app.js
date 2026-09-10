@@ -225,11 +225,11 @@ class WeatherApp {
       });
     }
 
-    // Step Simulation Button
+    // Step Simulation Button (Manual Single Step)
     const btnStep = document.getElementById('btn-step-sim');
     if (btnStep) {
       btnStep.addEventListener('click', () => {
-        Promise.resolve(this.stepSimulation()).catch(err => console.warn('Step sim error:', err));
+        Promise.resolve(this.stepSimulation(true)).catch(err => console.warn('Step sim error:', err));
       });
     }
 
@@ -625,30 +625,36 @@ class WeatherApp {
         return null;
       });
       
-      // Calculate true active anomaly and critical fault counts directly across all stations
-      let stationActiveCount = 0;
-      let stationCritCount = 0;
-
-      if (this.stations && Array.isArray(this.stations)) {
-        this.stations.forEach(stn => {
-          const hasAnomaly = (stn.active_anomalies_count && stn.active_anomalies_count > 0) || 
-                             (stn.active_anomalies && stn.active_anomalies.length > 0) ||
-                             (stn.latest_reading && Boolean(stn.latest_reading.is_anomaly)) ||
-                             stn.status === 'CRITICAL' || stn.status === 'DEGRADED';
-          if (hasAnomaly) {
-            const count = (stn.active_anomalies_count && stn.active_anomalies_count > 0)
-              ? stn.active_anomalies_count
-              : ((stn.active_anomalies && stn.active_anomalies.length > 0) ? stn.active_anomalies.length : 1);
-            stationActiveCount += count;
-            stationCritCount += count;
-          }
-        });
-      }
-
-      // True active count strictly derived from live stations
-      const activeUnresolved = stationActiveCount;
-      const critUnresolved = stationCritCount;
+      let activeUnresolved = 0;
+      let critUnresolved = 0;
       const accuracy = stats?.accuracy_rate ?? 98.8;
+
+      // 1. Primary Source: Live Database Anomaly Statistics
+      if (stats && typeof stats.active_unresolved === 'number') {
+        activeUnresolved = stats.active_unresolved;
+        critUnresolved = typeof stats.critical_unresolved === 'number' ? stats.critical_unresolved : 0;
+      } else {
+        // Fallback: Accurate derivation across stations with strict critical filtering
+        if (this.stations && Array.isArray(this.stations)) {
+          this.stations.forEach(stn => {
+            const anoms = stn.active_anomalies || (stn.latest_reading?.active_anomaly ? [stn.latest_reading.active_anomaly] : []);
+            if (anoms.length > 0) {
+              activeUnresolved += anoms.length;
+              critUnresolved += anoms.filter(a => (a.severity || '').toUpperCase() === 'CRITICAL').length;
+            } else if (stn.active_anomalies_count && stn.active_anomalies_count > 0) {
+              activeUnresolved += stn.active_anomalies_count;
+              if (stn.status === 'CRITICAL') {
+                critUnresolved += stn.active_anomalies_count;
+              }
+            } else if (stn.status === 'CRITICAL') {
+              activeUnresolved += 1;
+              critUnresolved += 1;
+            } else if (stn.status === 'DEGRADED') {
+              activeUnresolved += 1;
+            }
+          });
+        }
+      }
 
       // Update top banner summary counters
       const totalStationsEl = document.getElementById('stat-total-stations');
@@ -656,11 +662,15 @@ class WeatherApp {
       const critCountEl = document.getElementById('stat-critical-count');
       const accRateEl = document.getElementById('stat-accuracy-rate');
       const sidebarBadge = document.getElementById('sidebar-alert-badge');
+      const tabActiveBadge = document.getElementById('tab-active-count-badge');
+      const tabCritBadge = document.getElementById('tab-crit-count-badge');
 
       if (totalStationsEl) totalStationsEl.innerText = this.stations.length || '16';
       if (activeAnomEl) activeAnomEl.innerText = activeUnresolved;
       if (critCountEl) critCountEl.innerText = critUnresolved;
-      if (accRateEl) accRateEl.innerText = `${accuracy}%`;
+      if (tabActiveBadge) tabActiveBadge.innerText = activeUnresolved;
+      if (tabCritBadge) tabCritBadge.innerText = critUnresolved;
+      if (accRateEl) accRateEl.innerText = `${typeof accuracy === 'number' ? accuracy.toFixed(1) : accuracy}%`;
       if (sidebarBadge) {
         sidebarBadge.innerText = activeUnresolved;
         if (activeUnresolved > 0) {
@@ -680,6 +690,46 @@ class WeatherApp {
     }
   }
 
+  filterAlertsByCard(cardType) {
+    const fSev = document.getElementById('filter-severity');
+    const fStat = document.getElementById('filter-status');
+    const tabActive = document.getElementById('subtab-all-active');
+    const tabCrit = document.getElementById('subtab-critical-only');
+    const tabAll = document.getElementById('subtab-all-events');
+
+    const inactiveClass = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-2 cursor-pointer bg-slate-900 text-slate-400 border border-slate-800 hover:text-cyan-400';
+    if (tabActive) tabActive.className = inactiveClass;
+    if (tabCrit) tabCrit.className = inactiveClass;
+    if (tabAll) tabAll.className = inactiveClass;
+
+    if (cardType === 'CRITICAL_ONLY') {
+      this.alertFilters.severity = 'CRITICAL';
+      this.alertFilters.status = 'DETECTED';
+      if (fSev) fSev.value = 'CRITICAL';
+      if (fStat) fStat.value = 'DETECTED';
+      if (tabCrit) tabCrit.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-2 cursor-pointer bg-rose-950/70 text-rose-300 border border-rose-500 shadow-sm';
+      this.showToast('🔥 Priority Triage: Filtered to Critical Faults only.', 'rose');
+    } else if (cardType === 'ALL_EVENTS') {
+      this.alertFilters.severity = '';
+      this.alertFilters.status = '';
+      if (fSev) fSev.value = '';
+      if (fStat) fStat.value = '';
+      if (tabAll) tabAll.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-2 cursor-pointer bg-cyan-950/70 text-cyan-300 border border-cyan-500 shadow-sm';
+      this.showToast('📜 Alert Log: Showing all historical anomaly events.', 'blue');
+    } else {
+      this.alertFilters.severity = '';
+      this.alertFilters.status = 'DETECTED';
+      if (fSev) fSev.value = '';
+      if (fStat) fStat.value = 'DETECTED';
+      if (tabActive) tabActive.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-2 cursor-pointer bg-amber-950/70 text-amber-300 border border-amber-500 shadow-sm';
+      this.showToast('⚠️ Alert Feed: Showing all active unresolved anomalies.', 'amber');
+    }
+
+    // Switch to Alert Feed & Triage tab
+    this.switchTab('alerts');
+    this.loadAlertsFeed();
+  }
+
   async loadAlertsFeed() {
     try {
       const fStn = document.getElementById('filter-station');
@@ -687,10 +737,11 @@ class WeatherApp {
       const fStat = document.getElementById('filter-status');
       const fTyp = document.getElementById('filter-type');
 
-      if (fStn && this.alertFilters.station_id === undefined) this.alertFilters.station_id = fStn.value;
-      if (fSev && this.alertFilters.severity === undefined) this.alertFilters.severity = fSev.value;
-      if (fStat && this.alertFilters.status === undefined) this.alertFilters.status = fStat.value;
-      if (fTyp && this.alertFilters.anomaly_type === undefined) this.alertFilters.anomaly_type = fTyp.value;
+      // Sync dropdown elements to match active filters
+      if (fStn && this.alertFilters.station_id !== undefined) fStn.value = this.alertFilters.station_id;
+      if (fSev && this.alertFilters.severity !== undefined) fSev.value = this.alertFilters.severity;
+      if (fStat && this.alertFilters.status !== undefined) fStat.value = this.alertFilters.status;
+      if (fTyp && this.alertFilters.anomaly_type !== undefined) fTyp.value = this.alertFilters.anomaly_type;
 
       const anomalies = (await API.getAnomalies(this.alertFilters).catch(err => {
         console.warn('[SkyGuard UI] getAnomalies caught:', err);
@@ -710,7 +761,6 @@ class WeatherApp {
         return;
       }
 
-
       feedContainer.innerHTML = anomalies.map(a => {
         const d = new Date(a.timestamp);
         const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + d.toLocaleDateString();
@@ -728,21 +778,31 @@ class WeatherApp {
         };
         const unit = units[a.sensor] || '';
         const rawValDisplay = a.injected_value || (a.raw_value !== null && a.raw_value !== undefined ? `${a.raw_value} ${unit}` : 'N/A');
+        const isCritical = (a.severity || '').toUpperCase() === 'CRITICAL';
 
         return `
           <div class="anomaly-card-item bg-cardBg border border-cardBorder p-4 rounded-xl shadow-md space-y-3 mb-3 border-l-4 ${
-            a.severity === 'CRITICAL' ? 'border-l-rose-500' :
-            a.severity === 'HIGH' ? 'border-l-amber-500' :
+            isCritical ? 'border-l-rose-500 border-rose-900/40 bg-gradient-to-r from-rose-950/20 via-cardBg to-cardBg' :
+            a.severity === 'HIGH' ? 'border-l-amber-500 border-amber-900/30' :
             a.severity === 'MEDIUM' ? 'border-l-blue-500' : 'border-l-slate-400'
           }">
             <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
               <h4 class="font-bold text-sm text-slate-100 dark-heading flex items-center space-x-2">
-                <span>🚨 ${a.station_code || a.station_id} - ${a.station_name || 'AWS Station'}</span>
+                <span>${isCritical ? '🔥' : '🚨'} ${a.station_code || a.station_id} - ${a.station_name || 'AWS Station'}</span>
                 <span class="text-xs text-slate-400 font-mono font-normal">• ${timeStr}</span>
               </h4>
               <div class="flex items-center space-x-2">
+                ${isCritical ? `
+                  <span class="text-xs px-2.5 py-0.5 rounded-full font-mono font-bold bg-rose-950 text-rose-300 border border-rose-600 flex items-center space-x-1 shadow-sm animate-pulse">
+                    <span>CRITICAL FAULT</span>
+                  </span>
+                ` : `
+                  <span class="text-xs px-2 py-0.5 rounded font-mono font-semibold bg-amber-950/80 text-amber-300 border border-amber-600/60">
+                    ${a.severity || 'WARNING'}
+                  </span>
+                `}
                 <span class="text-xs px-2 py-0.5 bg-slate-800 text-cyan-400 rounded font-mono border border-cyan-500/30">
-                  ${a.ml_model} (${Math.round(a.confidence_score * 100)}% Conf)
+                  ${a.ml_model} (${Math.round((a.confidence_score || 0.95) * 100)}% Conf)
                 </span>
                 <span class="text-xs px-2 py-0.5 rounded font-mono font-bold ${
                   a.status === 'DETECTED' ? 'bg-rose-950/80 text-rose-300 border border-rose-700' :
@@ -757,7 +817,7 @@ class WeatherApp {
             <div class="anomaly-card-grid grid grid-cols-1 md:grid-cols-2 gap-2.5 p-3 rounded-lg bg-slate-900/60 border border-slate-800 text-xs">
               <div>
                 <span class="text-slate-400 font-semibold block text-[11px]">Injected / Observed Faulty Value:</span>
-                <span class="text-rose-500 font-bold font-mono text-sm">${rawValDisplay}</span>
+                <span class="${isCritical ? 'text-rose-400 font-extrabold' : 'text-amber-400 font-bold'} font-mono text-sm">${rawValDisplay}</span>
                 <span class="text-[11px] text-slate-400 block mt-0.5">${a.drift || (a.expected_range ? `Expected: ${a.expected_range}` : a.anomaly_type)}</span>
               </div>
 
@@ -771,12 +831,12 @@ class WeatherApp {
               </div>
               <div>
                 <span class="text-slate-400 font-semibold block text-[11px]">Recommended Action:</span>
-                <span class="text-blue-500 font-medium">${a.action || 'Inspect and recalibrate sensor element'}</span>
+                <span class="text-cyan-400 font-medium">${a.action || 'Inspect and recalibrate sensor element'}</span>
               </div>
             </div>
 
             <div class="flex items-center justify-between pt-2 border-t border-cardBorder text-xs">
-              <span class="text-slate-400 font-mono">Channel: <strong class="text-blue-400">${a.sensor}</strong> • Severity: <strong class="text-rose-400 font-bold">${a.severity}</strong></span>
+              <span class="text-slate-400 font-mono">Channel: <strong class="text-cyan-400">${a.sensor}</strong> • Severity: <strong class="${isCritical ? 'text-rose-400 font-bold' : 'text-amber-400 font-semibold'}">${a.severity}</strong></span>
               <div class="flex items-center space-x-2">
                 ${a.status === 'DETECTED' ? `
                   <button onclick="window.app.triageAlert(${a.id}, 'ACKNOWLEDGED')" class="px-2.5 py-1 bg-amber-600/90 hover:bg-amber-600 text-white rounded font-medium cursor-pointer transition">
@@ -801,8 +861,9 @@ class WeatherApp {
         `;
       }).join('');
 
-
-
+      if (window.lucide) {
+        try { window.lucide.createIcons(); } catch (e) {}
+      }
     } catch (err) {
       console.error('Error loading alerts feed:', err);
     }
@@ -848,15 +909,21 @@ class WeatherApp {
     this.loadAlertsFeed();
   }
 
-  async stepSimulation() {
+  async stepSimulation(isManual = false) {
+    // Detect anomalies and advance stream ONLY when live stream is running, or when user explicitly triggers manual action!
+    if (!this.isAutoSimulating && !isManual) {
+      return;
+    }
+
     const btn = document.getElementById('btn-step-sim');
-    if (btn) {
+    if (btn && isManual) {
       btn.disabled = true;
       btn.innerText = 'Processing AI Pipeline...';
     }
 
     try {
-      const stepRes = await API.stepSimulation();
+      // Pass active live stream state to API engine
+      const stepRes = await API.stepSimulation(this.isAutoSimulating);
       
       // Update simulation time banner safely
       const d = stepRes?.timestamp ? new Date(stepRes.timestamp) : new Date();
@@ -875,14 +942,14 @@ class WeatherApp {
       // Show toast if anomalies detected
       if (stepRes && stepRes.anomalies_detected > 0) {
         this.showToast(`🚨 ${stepRes.anomalies_detected} New Anomaly detected across AWS stations!`, 'rose');
-      } else {
+      } else if (isManual) {
         this.showToast(`✅ Simulation stepped (+15m). All stations operating normally.`, 'emerald');
       }
     } catch (err) {
       console.error('Simulation step error:', err);
-      this.showToast(`Simulation error: ${err.message}`, 'rose');
+      if (isManual) this.showToast(`Simulation error: ${err.message}`, 'rose');
     } finally {
-      if (btn) {
+      if (btn && isManual) {
         btn.disabled = false;
         btn.innerText = 'Advance Sim Step (+15m)';
       }
@@ -892,25 +959,67 @@ class WeatherApp {
 
   toggleAutoSimulation() {
     const btn = document.getElementById('btn-auto-sim');
+    const labBtn = document.getElementById('lab-btn-live');
+    const labBtnText = document.getElementById('lab-btn-live-text');
+    const simBadge = document.getElementById('sim-stream-badge');
+
     if (this.isAutoSimulating) {
-      clearInterval(this.autoSimInterval);
-      this.autoSimInterval = null;
+      // TURN OFF LIVE STREAM (Pause)
+      if (this.autoSimInterval) {
+        clearInterval(this.autoSimInterval);
+        this.autoSimInterval = null;
+      }
       this.isAutoSimulating = false;
+
       if (btn) {
-        btn.innerText = '▶ Start Live Stream';
+        btn.innerHTML = '<i data-lucide="play" class="w-3.5 h-3.5 fill-current mr-1"></i><span>Start Live Stream</span>';
         btn.classList.remove('bg-rose-600', 'hover:bg-rose-500');
         btn.classList.add('bg-blue-600', 'hover:bg-blue-500');
       }
+      if (labBtn) {
+        labBtn.classList.remove('bg-rose-600', 'hover:bg-rose-500');
+        labBtn.classList.add('bg-blue-600', 'hover:bg-blue-500');
+      }
+      if (labBtnText) {
+        labBtnText.innerText = 'Start Live Stream';
+      }
+      if (simBadge) {
+        simBadge.className = 'flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-xs font-mono text-slate-400';
+        simBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500"></span><span id="sim-status-label">STREAM PAUSED</span>';
+      }
+      if (window.lucide) { try { window.lucide.createIcons(); } catch (e) {} }
+
+      this.showToast('⏸ Live telemetry stream paused. Automated anomaly detection stopped.', 'amber');
     } else {
+      // TURN ON LIVE STREAM (Active)
       this.isAutoSimulating = true;
+
       if (btn) {
-        btn.innerText = '⏸ Pause Stream';
+        btn.innerHTML = '<i data-lucide="pause" class="w-3.5 h-3.5 fill-current mr-1"></i><span>Pause Stream</span>';
         btn.classList.remove('bg-blue-600', 'hover:bg-blue-500');
         btn.classList.add('bg-rose-600', 'hover:bg-rose-500');
       }
+      if (labBtn) {
+        labBtn.classList.remove('bg-blue-600', 'hover:bg-blue-500');
+        labBtn.classList.add('bg-rose-600', 'hover:bg-rose-500');
+      }
+      if (labBtnText) {
+        labBtnText.innerText = 'Pause Stream';
+      }
+      if (simBadge) {
+        simBadge.className = 'flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/40 border border-emerald-500/40 text-xs font-mono text-emerald-300';
+        simBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span id="sim-status-label">STREAMING LIVE</span>';
+      }
+      if (window.lucide) { try { window.lucide.createIcons(); } catch (e) {} }
+
+      this.showToast('▶ Live telemetry stream active. Real-time AI Sentinel online.', 'emerald');
+
+      // Run live stream step loop
       this.autoSimInterval = setInterval(() => {
-        this.stepSimulation();
-      }, 2500);
+        if (this.isAutoSimulating) {
+          this.stepSimulation(false);
+        }
+      }, 3000);
     }
   }
 
@@ -1248,8 +1357,9 @@ class WeatherApp {
   async clearAllFaults() {
     try {
       await API.clearFaults().catch(e => console.warn('clearFaults catch:', e));
+      this.recentInjections = [];
+      this.renderRecentInjections();
       this.showToast('🧹 All active synthetic faults cleared.', 'blue');
-      await this.stepSimulation().catch(e => console.warn(e));
       await this.refreshSummaryAndAlerts().catch(e => console.warn(e));
       await this.refreshAllData().catch(e => console.warn(e));
       await this.loadAlertsFeed().catch(e => console.warn(e));

@@ -484,7 +484,7 @@ const API = {
     });
   },
 
-  async stepSimulation() {
+  async stepSimulation(liveStreamActive = false) {
     return this._fetchOrFallback(`${this.baseUrl}/api/simulate/step`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
@@ -541,9 +541,9 @@ const API = {
         created = 1;
         stn.status = isCrit ? "CRITICAL" : (isWarn ? "DEGRADED" : "OPERATIONAL");
         stn.health_score = isCrit ? 64.0 : (isWarn ? 82.0 : 98.4);
-      } else {
-        // Natural live stream background anomaly generation (~35% chance per step)
-        if (Math.random() < 0.35) {
+      } else if (liveStreamActive) {
+        // Natural live stream background anomaly generation ONLY when live stream is actively running (~25% chance per step)
+        if (Math.random() < 0.25) {
           const randomStn = this._mockData.stations[Math.floor(Math.random() * this._mockData.stations.length)];
           const sampleFaults = [
             { sensor: 'temperature_c', type: 'SPIKE', mag: +(Math.random() * 8 + 18).toFixed(1), unit: '°C', base: 28.5, model: 'Tier-1:Dynamic-StepLimit', drift: 'Transient Step Jump', cause: 'THERMAL_SURGE_OR_ADC_GLITCH' },

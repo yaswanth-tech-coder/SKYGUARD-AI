@@ -182,21 +182,27 @@
           <i data-lucide="satellite-dish" class="w-5 h-5"></i>
         </div>
       </div>
-      <div class="bg-cardBg border border-cardBorder p-4 rounded-xl flex items-center justify-between">
+      <div id="card-active-anomalies" onclick="window.app.filterAlertsByCard('ALL_ACTIVE')" class="bg-cardBg border border-cardBorder hover:border-amber-500/60 transition cursor-pointer p-4 rounded-xl flex items-center justify-between group shadow-sm hover:shadow-amber-500/10" title="Click to view all Active Anomalies in Alert Feed">
         <div>
-          <div class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Active Anomalies</div>
+          <div class="text-xs font-semibold tracking-wider text-slate-400 group-hover:text-amber-400 transition uppercase flex items-center space-x-1">
+            <span>Active Anomalies</span>
+            <i data-lucide="external-link" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition text-amber-400"></i>
+          </div>
           <div class="text-2xl font-bold text-amberWarning mt-1"><span id="stat-active-anomalies">0</span> <span class="text-xs text-slate-400 font-normal">Unresolved</span></div>
         </div>
-        <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amberWarning">
+        <div class="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 group-hover:bg-amber-500/25 transition flex items-center justify-center text-amberWarning">
           <i data-lucide="alert-triangle" class="w-5 h-5"></i>
         </div>
       </div>
-      <div class="bg-cardBg border border-cardBorder p-4 rounded-xl flex items-center justify-between">
+      <div id="card-critical-faults" onclick="window.app.filterAlertsByCard('CRITICAL_ONLY')" class="bg-cardBg border border-cardBorder hover:border-rose-500/60 transition cursor-pointer p-4 rounded-xl flex items-center justify-between group shadow-sm hover:shadow-rose-500/10" title="Click to view Critical Faults in Priority Triage">
         <div>
-          <div class="text-xs font-semibold tracking-wider text-slate-400 uppercase">Critical Faults</div>
+          <div class="text-xs font-semibold tracking-wider text-slate-400 group-hover:text-rose-400 transition uppercase flex items-center space-x-1">
+            <span>Critical Faults</span>
+            <i data-lucide="external-link" class="w-3 h-3 opacity-0 group-hover:opacity-100 transition text-rose-400"></i>
+          </div>
           <div class="text-2xl font-bold text-roseDanger mt-1"><span id="stat-critical-count">0</span> <span class="text-xs text-slate-400 font-normal">Priority Triage</span></div>
         </div>
-        <div class="w-10 h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-roseDanger">
+        <div class="w-10 h-10 rounded-lg bg-rose-500/10 border border-rose-500/20 group-hover:bg-rose-500/25 transition flex items-center justify-center text-roseDanger">
           <i data-lucide="flame" class="w-5 h-5"></i>
         </div>
       </div>
@@ -381,6 +387,30 @@
 
 
 
+
+        <!-- Sub-View Navigation Tabs for Alert Feed -->
+        <div class="flex flex-wrap items-center justify-between border-b border-cardBorder pb-3 gap-2" id="alerts-sub-nav">
+          <div class="flex items-center space-x-2">
+            <button id="subtab-all-active" onclick="window.app.filterAlertsByCard('ALL_ACTIVE')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-2 cursor-pointer bg-amber-950/70 text-amber-300 border border-amber-500 shadow-sm" title="Show all active unresolved anomalies">
+              <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+              <span>Active Anomalies</span>
+              <span id="tab-active-count-badge" class="px-1.5 py-0.2 rounded-full bg-amber-950 text-amber-300 text-[10px] font-mono font-bold border border-amber-800">0</span>
+            </button>
+            <button id="subtab-critical-only" onclick="window.app.filterAlertsByCard('CRITICAL_ONLY')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-2 cursor-pointer bg-slate-900 text-slate-400 border border-slate-800 hover:text-rose-400 hover:border-rose-500/40" title="Filter to Priority Critical Faults only">
+              <i data-lucide="flame" class="w-3.5 h-3.5"></i>
+              <span>Critical Faults Only</span>
+              <span id="tab-crit-count-badge" class="px-1.5 py-0.2 rounded-full bg-rose-950 text-rose-300 text-[10px] font-mono font-bold border border-rose-800">0</span>
+            </button>
+            <button id="subtab-all-events" onclick="window.app.filterAlertsByCard('ALL_EVENTS')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-2 cursor-pointer bg-slate-900 text-slate-400 border border-slate-800 hover:text-cyan-400 hover:border-cyan-500/40" title="Show all historical and active anomalies">
+              <i data-lucide="list-filter" class="w-3.5 h-3.5"></i>
+              <span>All Logged Events</span>
+            </button>
+          </div>
+          <div class="text-[11px] text-slate-400 font-mono hidden md:flex items-center space-x-1">
+            <span>Live DB Connection:</span>
+            <span class="text-emeraldSuccess font-semibold">PostgreSQL / SQLite</span>
+          </div>
+        </div>
 
         <!-- Alert Feed Dynamic Cards List -->
         <div id="alerts-feed-list" class="space-y-3">

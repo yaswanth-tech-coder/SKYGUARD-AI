@@ -91,7 +91,24 @@ class TestAWSAnomalyDetectionSystem(unittest.TestCase):
         for s in stns:
             self.assertEqual(s["status"], "OPERATIONAL")
             self.assertEqual(s["health_score"], 100.0)
-        print("PASS: Reset active anomalies to zero verified successfully")
+
+        # 4. Verify station readings have cleared active anomaly flags for graphs
+        readings_res = self.client.get("/api/stations/AWS-IND-05/readings?limit=20")
+        self.assertEqual(readings_res.status_code, 200)
+        readings = readings_res.json()
+        for r in readings:
+            self.assertFalse(r["is_anomaly"], f"Reading {r} should not have is_anomaly=True after reset")
+            self.assertIn(r.get("anomaly_status"), ["RESOLVED", "NORMAL"])
+
+        # 5. Verify 3D scatter does not display any active anomaly points after reset
+        scatter_res = self.client.get("/api/analytics/plotly-3d-scatter")
+        self.assertEqual(scatter_res.status_code, 200)
+        scatter_data = scatter_res.json()
+        for trace in scatter_data.get("data", []):
+            trace_name = trace.get("name", "")
+            self.assertNotEqual(trace_name, "ACTIVE ANOMALY (DETECTED)", "3D scatter should have no ACTIVE ANOMALY trace after reset")
+
+        print("PASS: Reset active anomalies to zero and graph synchronization verified successfully")
 
     def test_07_plotly_endpoints(self):
 

@@ -361,20 +361,22 @@ const API = {
         const temp = baseTemp + 6.0 * Math.sin(Math.PI * (hour - 8) / 12.0) + (Math.random() - 0.5);
         const rh = Math.max(20, Math.min(95, 60.0 - (temp - baseTemp) * 3.0 + (Math.random() - 0.5) * 2));
         const press = 1013.25 + 1.5 * Math.cos(Math.PI * (hour - 9) / 6.0) + (Math.random() - 0.5) * 0.4;
-        readings.push({
-          station_id: stationId,
-          timestamp: ts.toISOString(),
-          temperature_c: parseFloat(temp.toFixed(2)),
-          humidity_pct: parseFloat(rh.toFixed(1)),
-          pressure_hpa: parseFloat(press.toFixed(2)),
-          wind_speed_ms: parseFloat((3.5 + Math.random() * 3.0).toFixed(2)),
-          solar_radiation_wm2: hour >= 6 && hour <= 18 ? parseFloat((Math.sin(Math.PI * (hour - 6) / 12.0) * 850).toFixed(1)) : 0.0,
-          dew_point_c: parseFloat((temp - ((100 - rh) / 5)).toFixed(2)),
-          battery_v: 12.6,
-          is_anomaly: i === 0 && this._mockData.anomalies.some(a => a.station_id === stationId && a.status === 'DETECTED'),
-          anomaly_score: i === 0 ? 0.95 : 0.02
-        });
-      }
+          const isAnom = i === 0 && this._mockData.anomalies.some(a => a.station_id === stationId && a.status === 'DETECTED');
+          readings.push({
+            station_id: stationId,
+            timestamp: ts.toISOString(),
+            temperature_c: parseFloat(temp.toFixed(2)),
+            humidity_pct: parseFloat(rh.toFixed(1)),
+            pressure_hpa: parseFloat(press.toFixed(2)),
+            wind_speed_ms: parseFloat((3.5 + Math.random() * 3.0).toFixed(2)),
+            solar_radiation_wm2: hour >= 6 && hour <= 18 ? parseFloat((Math.sin(Math.PI * (hour - 6) / 12.0) * 850).toFixed(1)) : 0.0,
+            dew_point_c: parseFloat((temp - ((100 - rh) / 5)).toFixed(2)),
+            battery_v: 12.6,
+            is_anomaly: isAnom,
+            anomaly_status: isAnom ? 'DETECTED' : 'NORMAL',
+            anomaly_score: isAnom ? 0.95 : 0.02
+          });
+        }
       return readings;
     });
   },
@@ -672,9 +674,9 @@ const API = {
         xVals.push(r.temperature_c ?? 28.5);
         yVals.push(r.humidity_pct ?? 55.0);
         zVals.push(r.pressure_hpa ?? 1013.25);
-        const isAnom = stn.status === 'CRITICAL' || (stn.active_anomalies_count && stn.active_anomalies_count > 0);
+        const isAnom = (stn.status === 'CRITICAL' || (stn.active_anomalies_count && stn.active_anomalies_count > 0)) && this._mockData.anomalies.some(a => a.station_id === stn.id && a.status === 'DETECTED');
         colors.push(isAnom ? "#f43f5e" : "#06b6d4");
-        names.push(`${stn.name} (${stn.code}) - ${isAnom ? 'ANOMALY DETECTED' : 'NORMAL'}`);
+        names.push(`${stn.name} (${stn.code}) - ${isAnom ? 'ACTIVE ANOMALY (DETECTED)' : 'NORMAL'}`);
       });
 
       return {

@@ -361,6 +361,8 @@ class WeatherApp {
       await this.refreshSummaryAndAlerts().catch(e => console.warn(e));
       if (this.activeTab === 'charts') {
         await this.loadStationChartData().catch(e => console.warn(e));
+      } else if (this.activeTab === 'models') {
+        await this.loadPlotly3dScatter().catch(e => console.warn(e));
       }
     } catch (err) {
       console.error('Error refreshing all data:', err);
@@ -876,7 +878,9 @@ class WeatherApp {
       await this.refreshSummaryAndAlerts();
       if (this.selectedStationId) {
         await this.selectStation(this.selectedStationId);
+        await this.loadStationChartData().catch(e => console.warn(e));
       }
+      await this.loadPlotly3dScatter().catch(e => console.warn(e));
       this.showToast(`Anomaly #${anomalyId} updated to ${newStatus}`, 'emerald');
     } catch (err) {
       console.error('Triage failed:', err);
@@ -891,6 +895,8 @@ class WeatherApp {
       await this.refreshAllData();
       await this.refreshSummaryAndAlerts();
       await this.loadAlertsFeed();
+      await this.loadStationChartData().catch(e => console.warn(e));
+      await this.loadPlotly3dScatter().catch(e => console.warn(e));
       this.showToast(`🧹 Active anomalies reset to 0 (${res.resetted_count} triaged). Stations restored to 100% Operational.`, 'emerald');
     } catch (err) {
       console.error('Error resetting active anomalies:', err);
@@ -1363,6 +1369,8 @@ class WeatherApp {
       await this.refreshSummaryAndAlerts().catch(e => console.warn(e));
       await this.refreshAllData().catch(e => console.warn(e));
       await this.loadAlertsFeed().catch(e => console.warn(e));
+      await this.loadStationChartData().catch(e => console.warn(e));
+      await this.loadPlotly3dScatter().catch(e => console.warn(e));
     } catch (err) {
       this.showToast(`Clear error: ${err.message}`, 'rose');
     }

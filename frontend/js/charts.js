@@ -57,8 +57,12 @@ class TelemetryCharts {
             callbacks: {
               afterBody: function(tooltipItems) {
                 const item = tooltipItems[0];
-                if (item && item.raw && item.raw.isAnomaly) {
-                  return `\n🚨 AI ANOMALY DETECTED!\nConfidence Score: ${Math.round((item.raw.anomalyScore || 0.95) * 100)}%`;
+                if (item && item.raw) {
+                  if (item.raw.isAnomaly && item.raw.anomalyStatus !== 'RESOLVED') {
+                    return `\n🚨 AI ANOMALY DETECTED!\nStatus: ${item.raw.anomalyStatus || 'DETECTED'}\nConfidence Score: ${Math.round((item.raw.anomalyScore || 0.95) * 100)}%`;
+                  } else if (item.raw.anomalyStatus === 'RESOLVED') {
+                    return `\n✅ Anomaly Status: RESOLVED (Cleared)`;
+                  }
                 }
                 return '';
               }
@@ -131,11 +135,21 @@ class TelemetryCharts {
 
     const values = readings.map(r => r[this.currentChannel]);
     
-    // Highlight anomaly points with high-contrast red ring
-    const pointBackgroundColors = readings.map(r => r.is_anomaly ? '#ef4444' : currentMeta.color);
-    const pointBorderColors = readings.map(r => r.is_anomaly ? '#ffffff' : currentMeta.color);
-    const pointRadii = readings.map(r => r.is_anomaly ? 7 : 3);
-    const pointHoverRadii = readings.map(r => r.is_anomaly ? 10 : 6);
+    // Highlight anomaly points with high-contrast red ring strictly if active
+    const isPointActiveAnomaly = r => Boolean(r.is_anomaly && r.anomaly_status !== 'RESOLVED');
+
+    const pointBackgroundColors = readings.map(r => 
+      isPointActiveAnomaly(r) ? '#ef4444' : (r.anomaly_status === 'RESOLVED' ? '#10b981' : currentMeta.color)
+    );
+    const pointBorderColors = readings.map(r => 
+      isPointActiveAnomaly(r) ? '#ffffff' : (r.anomaly_status === 'RESOLVED' ? '#ffffff' : currentMeta.color)
+    );
+    const pointRadii = readings.map(r => 
+      isPointActiveAnomaly(r) ? 7 : (r.anomaly_status === 'RESOLVED' ? 4 : 3)
+    );
+    const pointHoverRadii = readings.map(r => 
+      isPointActiveAnomaly(r) ? 10 : (r.anomaly_status === 'RESOLVED' ? 6 : 6)
+    );
 
     // Calculate rolling dynamic envelope (Mean ± 2.5 StdDev)
     const upperEnvelope = [];
@@ -163,7 +177,8 @@ class TelemetryCharts {
         data: values.map((val, idx) => ({
           x: labels[idx],
           y: val,
-          isAnomaly: readings[idx].is_anomaly,
+          isAnomaly: isPointActiveAnomaly(readings[idx]),
+          anomalyStatus: readings[idx].anomaly_status || (readings[idx].is_anomaly ? 'DETECTED' : 'NORMAL'),
           anomalyScore: readings[idx].anomaly_score
         })),
         borderColor: currentMeta.color,

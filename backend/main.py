@@ -179,8 +179,35 @@ def get_station_readings(
         .limit(limit)
         .all()
     )
-    # Reverse to chronological order (oldest -> newest) for chart plotting
-    chronological = [r.to_dict() for r in reversed(readings)]
+    
+    # Check if there are active detected anomalies for this station
+    active_anomalies = (
+        db.query(AnomalyEvent)
+        .filter(
+            AnomalyEvent.station_id == station_id,
+            AnomalyEvent.status == "DETECTED"
+        )
+        .all()
+    )
+    has_active_detected = len(active_anomalies) > 0
+
+    chronological = []
+    for r in reversed(readings):
+        d = r.to_dict()
+        if not has_active_detected:
+            # If all anomalies are cleared or resolved for this station, points must not show as active detected
+            d["is_anomaly"] = False
+            d["anomaly_status"] = "RESOLVED" if r.is_anomaly else "NORMAL"
+        else:
+            # There is at least one active DETECTED anomaly
+            if r.is_anomaly:
+                d["is_anomaly"] = True
+                d["anomaly_status"] = "DETECTED"
+            else:
+                d["is_anomaly"] = False
+                d["anomaly_status"] = "NORMAL"
+        chronological.append(d)
+
     return chronological
 
 
@@ -378,6 +405,15 @@ def update_anomaly_status(
         if remaining_detected == 0:
             stn.health_score = 100.0
             stn.status = "OPERATIONAL"
+            # When all detected anomalies are resolved, reset SensorReading flags for this station
+            if req.status.upper() in ["RESOLVED", "FALSE_POSITIVE"]:
+                db.query(SensorReading).filter(
+                    SensorReading.station_id == anom.station_id,
+                    SensorReading.is_anomaly == True
+                ).update({
+                    SensorReading.is_anomaly: False,
+                    SensorReading.anomaly_score: 0.02
+                }, synchronize_session=False)
         else:
             stn.health_score = 64.0
             stn.status = "CRITICAL"
@@ -391,7 +427,7 @@ def update_anomaly_status(
 def reset_all_active_anomalies(db: Session = Depends(get_db)):
     """
     Reset all active/open anomaly alerts to zero and restore station health to 100%,
-    without affecting Fault Injection Studio scenarios or AI Model Health & XAI metrics.
+    clearing graph anomaly indicators across all tabs.
     """
     active_anomalies = db.query(AnomalyEvent).filter(AnomalyEvent.status == "DETECTED").all()
     now_time = datetime.datetime.now(datetime.timezone.utc)
@@ -405,6 +441,15 @@ def reset_all_active_anomalies(db: Session = Depends(get_db)):
     for stn in stations:
         stn.health_score = 100.0
         stn.status = "OPERATIONAL"
+
+    # Reset any historical is_anomaly flags on SensorReading table to avoid stale graph anomalies
+    db.query(SensorReading).filter(SensorReading.is_anomaly == True).update({
+        SensorReading.is_anomaly: False,
+        SensorReading.anomaly_score: 0.02
+    }, synchronize_session=False)
+
+    # Clear active simulator faults so stream doesn't re-inject them immediately
+    simulator.clear_faults()
 
     db.commit()
 
@@ -436,10 +481,42 @@ def inject_synthetic_fault(req: FaultInjectionRequest):
 
 
 @app.post("/api/simulate/clear")
-def clear_injected_faults(station_id: Optional[str] = None):
-    """Clear all active synthetic fault injections."""
+def clear_injected_faults(station_id: Optional[str] = None, db: Session = Depends(get_db)):
+    """Clear all active synthetic fault injections, resolve active anomalies, and reset readings."""
     simulator.clear_faults(station_id)
-    return {"status": "CLEARED", "station_id": station_id or "ALL"}
+
+    anom_query = db.query(AnomalyEvent).filter(AnomalyEvent.status == "DETECTED")
+    readings_query = db.query(SensorReading).filter(SensorReading.is_anomaly == True)
+    station_query = db.query(Station)
+
+    if station_id and station_id.upper() != "ALL":
+        anom_query = anom_query.filter(AnomalyEvent.station_id == station_id)
+        readings_query = readings_query.filter(SensorReading.station_id == station_id)
+        station_query = station_query.filter(Station.id == station_id)
+
+    active_anoms = anom_query.all()
+    now_time = datetime.datetime.now(datetime.timezone.utc)
+    for a in active_anoms:
+        a.status = "RESOLVED"
+        a.acknowledged_at = now_time
+        a.triage_notes = "Fault cleared via Fault Injection Studio."
+
+    readings_query.update({
+        SensorReading.is_anomaly: False,
+        SensorReading.anomaly_score: 0.02
+    }, synchronize_session=False)
+
+    for stn in station_query.all():
+        stn.health_score = 100.0
+        stn.status = "OPERATIONAL"
+
+    db.commit()
+
+    return {
+        "status": "CLEARED",
+        "station_id": station_id or "ALL",
+        "resolved_anomalies_count": len(active_anoms)
+    }
 
 
 @app.post("/api/simulate/step")
@@ -776,7 +853,7 @@ def get_plotly_station_map(db: Session = Depends(get_db)):
 def get_plotly_3d_scatter(db: Session = Depends(get_db)):
     """
     Generate 3D Multivariate Feature Space Scatter (Temp vs Humidity vs Pressure)
-    highlighting AI Anomaly clusters.
+    highlighting AI Anomaly clusters strictly according to active anomaly status.
     """
     import plotly.express as px
     import json
@@ -785,10 +862,25 @@ def get_plotly_3d_scatter(db: Session = Depends(get_db)):
     if not readings:
         return {"data": [], "layout": {}}
 
+    # Query active DETECTED anomaly station IDs
+    active_station_ids = set(
+        row[0] for row in db.query(AnomalyEvent.station_id).filter(AnomalyEvent.status == "DETECTED").all()
+    )
+
     records = []
     stn_map = {s.id: s.name for s in db.query(Station).all()}
 
     for r in readings:
+        # A point is an active anomaly ONLY if its station currently has an active DETECTED anomaly and r.is_anomaly is True
+        is_active_anomaly = (r.station_id in active_station_ids) and bool(r.is_anomaly)
+
+        if is_active_anomaly:
+            status_label = "ACTIVE ANOMALY (DETECTED)"
+        elif r.is_anomaly:
+            status_label = "RESOLVED ANOMALY"
+        else:
+            status_label = "NORMAL OBSERVATION"
+
         records.append({
             "station_name": stn_map.get(r.station_id, r.station_id),
             "temperature_c": r.temperature_c,
@@ -796,7 +888,7 @@ def get_plotly_3d_scatter(db: Session = Depends(get_db)):
             "pressure_hpa": r.pressure_hpa,
             "wind_speed_ms": r.wind_speed_ms,
             "anomaly_score": r.anomaly_score,
-            "status": "ANOMALOUS OBSERVATION" if r.is_anomaly else "NORMAL OBSERVATION"
+            "status": status_label
         })
 
     df_3d = pd.DataFrame(records)
@@ -809,7 +901,8 @@ def get_plotly_3d_scatter(db: Session = Depends(get_db)):
         color="status",
         color_discrete_map={
             "NORMAL OBSERVATION": "#3b82f6",
-            "ANOMALOUS OBSERVATION": "#f43f5e"
+            "RESOLVED ANOMALY": "#10b981",
+            "ACTIVE ANOMALY (DETECTED)": "#f43f5e"
         },
         hover_name="station_name",
         hover_data={"anomaly_score": True, "wind_speed_ms": True},

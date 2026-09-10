@@ -235,16 +235,6 @@
                   <span>Reset View</span>
                 </button>
 
-                <!-- Map Engine Toggle -->
-                <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs">
-                  <button id="btn-map-leaflet" class="px-2.5 py-1 rounded font-bold bg-blue-600 text-white transition cursor-pointer">
-                    🗺️ Leaflet Live
-                  </button>
-                  <button id="btn-map-plotly" class="px-2.5 py-1 rounded font-bold text-slate-400 hover:text-white transition cursor-pointer">
-                    📊 Plotly OpenStreetMap
-                  </button>
-                </div>
-
                 <div class="hidden sm:flex items-center space-x-3">
                   <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-emeraldSuccess mr-1.5"></span>Normal</span>
                   <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-amberWarning mr-1.5"></span>Degraded</span>
@@ -255,8 +245,6 @@
 
             <!-- Leaflet Container -->
             <div id="map-container" class="flex-1 w-full min-h-[460px] bg-slate-950"></div>
-            <!-- Plotly Container -->
-            <div id="plotly-map-container" class="flex-1 w-full min-h-[460px] bg-slate-950 hidden"></div>
           </div>
           
           <!-- Right Col: Selected Station Detail Card & Defense Architecture -->

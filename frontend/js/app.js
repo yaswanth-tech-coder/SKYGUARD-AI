@@ -143,15 +143,12 @@ class WeatherApp {
       }
     }
 
-    // Dynamically update Leaflet & Plotly Map tiles according to chosen theme
+    // Dynamically update Leaflet Map tiles according to chosen theme
     if (this.mapManager && typeof this.mapManager.setTheme === 'function') {
       this.mapManager.setTheme(theme);
     }
     if (this.chartsManager && typeof this.chartsManager.setTheme === 'function') {
       this.chartsManager.setTheme(theme);
-    }
-    if (this.mapEngine === 'plotly') {
-      this.loadPlotlyMap();
     }
 
     // Refresh 3D Scatter & Model Metrics for active theme
@@ -191,18 +188,6 @@ class WeatherApp {
         }
       });
     });
-
-    // Map Engine Toggle (Leaflet vs Plotly OpenStreetMap)
-    const btnLeaflet = document.getElementById('btn-map-leaflet');
-    const btnPlotly = document.getElementById('btn-map-plotly');
-    if (btnLeaflet && btnPlotly) {
-      btnLeaflet.addEventListener('click', () => {
-        try { this.setMapEngine('leaflet'); } catch (e) { console.warn(e); }
-      });
-      btnPlotly.addEventListener('click', () => {
-        try { this.setMapEngine('plotly'); } catch (e) { console.warn(e); }
-      });
-    }
 
     // Channel Selector Buttons (Charts View)
     document.querySelectorAll('.channel-btn').forEach(btn => {
@@ -315,9 +300,7 @@ class WeatherApp {
 
       // Trigger Map resize or chart update with safe .catch() handlers
       if (tabKey === 'map') {
-        if (this.mapEngine === 'plotly') {
-          Promise.resolve(this.loadPlotlyMap()).catch(err => console.warn('Plotly map load warning:', err));
-        } else if (this.mapManager && this.mapManager.map) {
+        if (this.mapManager && this.mapManager.map) {
           setTimeout(() => {
             try { this.mapManager.map.invalidateSize(); } catch (e) {}
           }, 150);
@@ -343,47 +326,8 @@ class WeatherApp {
     }
   }
 
-  setMapEngine(engine) {
-
-    this.mapEngine = engine;
-    const btnLeaflet = document.getElementById('btn-map-leaflet');
-    const btnPlotly = document.getElementById('btn-map-plotly');
-    const mapLeaflet = document.getElementById('map-container');
-    const mapPlotly = document.getElementById('plotly-map-container');
-
-    if (engine === 'plotly') {
-      if (btnPlotly) {
-        btnPlotly.classList.add('bg-blue-600', 'text-white', 'shadow');
-        btnPlotly.classList.remove('text-slate-400');
-      }
-      if (btnLeaflet) {
-        btnLeaflet.classList.remove('bg-blue-600', 'text-white', 'shadow');
-        btnLeaflet.classList.add('text-slate-400');
-      }
-      if (mapLeaflet) mapLeaflet.classList.add('hidden');
-      if (mapPlotly) mapPlotly.classList.remove('hidden');
-      this.loadPlotlyMap();
-    } else {
-      if (btnLeaflet) {
-        btnLeaflet.classList.add('bg-blue-600', 'text-white', 'shadow');
-        btnLeaflet.classList.remove('text-slate-400');
-      }
-      if (btnPlotly) {
-        btnPlotly.classList.remove('bg-blue-600', 'text-white', 'shadow');
-        btnPlotly.classList.add('text-slate-400');
-      }
-      if (mapPlotly) mapPlotly.classList.add('hidden');
-      if (mapLeaflet) mapLeaflet.classList.remove('hidden');
-      if (this.mapManager && this.mapManager.map) {
-        setTimeout(() => this.mapManager.map.invalidateSize(), 150);
-      }
-    }
-  }
-
   resetMapView() {
-    if (this.mapEngine === 'plotly') {
-      this.loadPlotlyMap().catch(() => {});
-    } else if (this.mapManager) {
+    if (this.mapManager) {
       this.mapManager.resetView();
     }
     this.showToast('🗺️ Map view reset to Pan-India topology.', 'cyan');
@@ -400,9 +344,6 @@ class WeatherApp {
         try { this.mapManager.updateStations(this.stations); } catch (e) {}
       }
       this.renderNetworkStationHealth();
-      if (this.mapEngine === 'plotly') {
-        Promise.resolve(this.loadPlotlyMap()).catch(e => console.warn(e));
-      }
       await this.refreshSummaryAndAlerts().catch(e => console.warn(e));
       if (this.activeTab === 'charts') {
         await this.loadStationChartData().catch(e => console.warn(e));

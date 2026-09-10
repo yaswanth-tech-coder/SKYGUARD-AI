@@ -189,6 +189,20 @@ class WeatherApp {
       });
     });
 
+    // Leaflet Live & Reset View Map Key Listeners
+    const btnResetMap = document.getElementById('btn-reset-map-view');
+    const btnLeaflet = document.getElementById('btn-map-leaflet');
+    if (btnResetMap) {
+      btnResetMap.addEventListener('click', () => {
+        try { this.resetMapView(); } catch (e) { console.warn(e); }
+      });
+    }
+    if (btnLeaflet) {
+      btnLeaflet.addEventListener('click', () => {
+        try { this.resetMapView(); } catch (e) { console.warn(e); }
+      });
+    }
+
     // Channel Selector Buttons (Charts View)
     document.querySelectorAll('.channel-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {

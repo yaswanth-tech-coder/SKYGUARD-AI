@@ -122,6 +122,7 @@ class StationMap {
   resetView(center = [22.0, 80.5], zoom = 5) {
     if (!this.map) return;
     try {
+      this.map.invalidateSize();
       this.map.closePopup();
       this.map.setView(center, zoom, { animate: true, duration: 0.8 });
     } catch (e) {

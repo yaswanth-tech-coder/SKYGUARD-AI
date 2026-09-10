@@ -250,7 +250,7 @@ const API = {
   async getStations() {
     this._syncStationLiveReadings();
     try {
-      const res = await this._fetchOrFallback(`${this.baseUrl}/api/stations/latest`, {}, () => {
+      const res = await this._fetchOrFallback(`${this.baseUrl}/api/stations`, {}, () => {
         this._syncStationLiveReadings();
         return this._mockData.stations;
       }).catch(err => {

@@ -175,10 +175,15 @@ def get_latest_station_readings():
 
     # Primary Source: Query SQLite / PostgreSQL database for rich station models, active anomalies & telemetry
     try:
-        from backend.database import SessionLocal
+        from backend.database import SessionLocal, init_db
         from backend.main import get_all_stations
+        from backend.models import Station
+        from backend.seed_data import seed_database
+        init_db()
         db = SessionLocal()
         try:
+            if db.query(Station).count() == 0:
+                seed_database(db)
             db_stations = get_all_stations(db=db)
             if db_stations and len(db_stations) > 0:
                 logger.info(f"Retrieved {len(db_stations)} live stations directly from SQLite database.")
@@ -203,6 +208,26 @@ def get_latest_station_readings():
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "stations": cached_list
     }
+
+
+@app.on_event("startup")
+def startup_db_init():
+    """Ensure database schema and initial 16 Indian AWS stations exist upon server boot."""
+    try:
+        from backend.database import init_db, SessionLocal
+        from backend.models import Station
+        from backend.seed_data import seed_database
+        init_db()
+        db = SessionLocal()
+        try:
+            if db.query(Station).count() == 0:
+                logger.info("Seeding initial 16 Indian AWS stations into database...")
+                seed_database(db)
+        finally:
+            db.close()
+        logger.info("Database schema initialized and verified.")
+    except Exception as e:
+        logger.warning(f"Startup DB init warning: {e}")
 
 
 # Mount existing SkyGuard AI backend routes if available

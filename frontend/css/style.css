@@ -233,7 +233,7 @@ body.light aside {
 }
 
 body.light header {
-  background-color: rgba(255, 255, 255, 0.9) !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
   border-color: #e2e8f0 !important;
 }
 
@@ -256,45 +256,66 @@ body.light .border-cardBorder {
   border-color: #e2e8f0 !important;
 }
 
+/* Typography & Headings in Light Mode */
 body.light .text-white,
 body.light .dark-heading {
   color: #0f172a !important;
 }
 
-body.light .text-slate-100 {
+body.light .text-slate-100,
+body.light .text-gray-100 {
   color: #0f172a !important;
 }
 
-body.light .text-slate-200 {
+body.light .text-slate-200,
+body.light .text-gray-200 {
   color: #1e293b !important;
 }
 
-body.light .text-slate-300 {
+body.light .text-slate-300,
+body.light .text-gray-300 {
   color: #334155 !important;
 }
 
-body.light .text-slate-400 {
+body.light .text-slate-400,
+body.light .text-gray-400,
+body.light .text-slate-500,
+body.light .text-gray-500 {
   color: #64748b !important;
 }
 
+/* Universal Dark Background Overrides in Light Mode */
 body.light .bg-slate-900,
-body.light .bg-slate-900\/80,
 body.light .bg-slate-900\/90,
-body.light .bg-slate-900\/60 {
+body.light .bg-slate-900\/80,
+body.light .bg-slate-900\/70,
+body.light .bg-slate-900\/60,
+body.light .bg-slate-900\/50,
+body.light .bg-slate-900\/40,
+body.light .bg-slate-950,
+body.light .bg-slate-950\/90,
+body.light .bg-slate-950\/80,
+body.light .bg-slate-950\/60,
+body.light .bg-slate-950\/40,
+body.light .bg-gray-900,
+body.light .bg-gray-900\/90,
+body.light .bg-gray-900\/80,
+body.light .bg-gray-900\/60,
+body.light .bg-gray-950 {
   background-color: #f8fafc !important;
   border-color: #e2e8f0 !important;
   color: #0f172a !important;
 }
 
-body.light .bg-slate-950,
-body.light .bg-slate-950\/40 {
-  background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
-  color: #0f172a !important;
-}
-
 body.light .bg-slate-800,
-body.light .bg-slate-800\/80 {
+body.light .bg-slate-800\/90,
+body.light .bg-slate-800\/80,
+body.light .bg-slate-800\/60,
+body.light .bg-slate-800\/50,
+body.light .bg-gray-800,
+body.light .bg-gray-800\/90,
+body.light .bg-gray-800\/80,
+body.light .bg-gray-800\/60 {
   background-color: #f1f5f9 !important;
   border-color: #cbd5e1 !important;
   color: #1e293b !important;
@@ -302,7 +323,13 @@ body.light .bg-slate-800\/80 {
 
 body.light .border-slate-800, 
 body.light .border-slate-700,
-body.light .border-slate-800\/80 {
+body.light .border-slate-800\/80,
+body.light .border-slate-800\/60,
+body.light .border-gray-800,
+body.light .border-gray-700,
+body.light .divide-slate-800\/80,
+body.light .divide-slate-800,
+body.light .divide-gray-800 {
   border-color: #e2e8f0 !important;
 }
 
@@ -329,9 +356,24 @@ body.light .sidebar-btn.active {
   color: #0284c7 !important;
 }
 
-/* Map Tiles & Dynamic Light Pills */
+/* Map Container, Tiles & Overlays */
+body.light #map-container,
 body.light .leaflet-container {
   background-color: #f1f5f9 !important;
+}
+
+body.light .leaflet-reset-view-btn {
+  background-color: #ffffff !important;
+  color: #0284c7 !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+body.light .leaflet-control-zoom a,
+body.light .leaflet-control-layers {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
 }
 
 body.light .map-tiles-dark {
@@ -371,6 +413,132 @@ body.light .map-popup-inner {
   color: #0f172a !important;
 }
 
+body.light #leaflet-live-container {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* ========================================================= */
+/* TAB 1: GEO MAP SIDEBAR OVERRIDES (IMAGE 1 FIX)            */
+/* ========================================================= */
+
+/* Station Detail Card Active Anomaly Banner */
+body.light #selected-station-card .bg-cardBg {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.light #selected-station-card .bg-amber-950\/80,
+body.light #selected-station-card .bg-amber-950 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #92400e !important;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.08) !important;
+}
+
+body.light #selected-station-card .bg-amber-900 {
+  background-color: #fef3c7 !important;
+  color: #b45309 !important;
+  border-color: #fde68a !important;
+}
+
+body.light #selected-station-card .bg-rose-950\/80,
+body.light #selected-station-card .bg-rose-950 {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+  color: #9f1239 !important;
+  box-shadow: 0 1px 3px rgba(244, 63, 94, 0.08) !important;
+}
+
+body.light #selected-station-card .bg-rose-900 {
+  background-color: #ffe4e6 !important;
+  color: #be123c !important;
+  border-color: #fecdd3 !important;
+}
+
+body.light #selected-station-card .bg-blue-950\/80,
+body.light #selected-station-card .bg-blue-950 {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1e40af !important;
+}
+
+body.light #selected-station-card .bg-slate-950\/60,
+body.light #selected-station-card .bg-slate-950 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.light #selected-station-card .text-rose-300 {
+  color: #be123c !important;
+}
+
+body.light #selected-station-card .text-amber-300 {
+  color: #b45309 !important;
+}
+
+body.light #selected-station-card .text-slate-300 {
+  color: #334155 !important;
+}
+
+body.light #selected-station-card .text-slate-400 {
+  color: #64748b !important;
+}
+
+body.light #selected-station-card .text-white {
+  color: #0f172a !important;
+}
+
+/* Network Station Health Table */
+body.light #network-station-count {
+  background-color: #fff1f2 !important;
+  color: #be123c !important;
+  border-color: #fecdd3 !important;
+}
+
+body.light #network-station-health-list > div {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+}
+
+body.light #network-station-health-list > div:hover {
+  background-color: #f8fafc !important;
+}
+
+body.light #network-station-health-list .bg-slate-800\/90 {
+  background-color: #eff6ff !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 2px 4px rgba(2, 132, 199, 0.12) !important;
+}
+
+body.light #network-station-health-list .bg-rose-950\/80 {
+  background-color: #fff1f2 !important;
+  color: #be123c !important;
+  border-color: #fecdd3 !important;
+}
+
+body.light #network-station-health-list .bg-amber-950\/80 {
+  background-color: #fffbeb !important;
+  color: #b45309 !important;
+  border-color: #fde68a !important;
+}
+
+body.light #network-station-health-list .bg-emerald-950\/80 {
+  background-color: #ecfdf5 !important;
+  color: #047857 !important;
+  border-color: #a7f3d0 !important;
+}
+
+body.light #network-station-health-list .text-slate-200 {
+  color: #0f172a !important;
+}
+
+body.light #network-station-health-list .text-slate-400 {
+  color: #64748b !important;
+}
+
 /* Channel Buttons in Time Series Tab */
 body.light .channel-btn:not(.active) {
   background-color: #ffffff !important;
@@ -383,11 +551,50 @@ body.light .channel-btn:not(.active):hover {
   color: #0284c7 !important;
 }
 
-/* Alert Feed Cards & Triage */
-body.light .anomaly-card-item {
+/* ========================================================= */
+/* TAB 3: ALERT FEED & TRIAGE OVERRIDES                      */
+/* ========================================================= */
+body.light #alerts-sub-nav button.bg-slate-900 {
   background-color: #ffffff !important;
+  color: #475569 !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.light #alerts-sub-nav button.bg-slate-900:hover {
+  background-color: #f8fafc !important;
+}
+
+body.light #alerts-sub-nav #subtab-all-active.bg-amber-950\/70 {
+  background-color: #fffbeb !important;
+  color: #b45309 !important;
+  border-color: #f59e0b !important;
+}
+
+body.light #alerts-sub-nav #subtab-critical-only.bg-rose-950\/70 {
+  background-color: #fff1f2 !important;
+  color: #be123c !important;
+  border-color: #f43f5e !important;
+}
+
+body.light #alerts-sub-nav #subtab-all-events.bg-cyan-950\/70 {
+  background-color: #f0f9ff !important;
+  color: #0369a1 !important;
+  border-color: #0284c7 !important;
+}
+
+body.light .anomaly-card-item {
+  background: #ffffff !important;
   border-color: #e2e8f0 !important;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light .anomaly-card-item.border-l-rose-500 {
+  background: #ffffff !important;
+  border-color: #fecdd3 !important;
+}
+
+body.light .anomaly-card-item .text-slate-100 {
+  color: #0f172a !important;
 }
 
 body.light .anomaly-card-grid {
@@ -395,7 +602,80 @@ body.light .anomaly-card-grid {
   border-color: #e2e8f0 !important;
 }
 
-/* Fault Injection Studio Elements */
+body.light .anomaly-card-grid .text-slate-200 {
+  color: #1e293b !important;
+}
+
+/* ========================================================= */
+/* TAB 4: FAULT INJECTION STUDIO OVERRIDES                   */
+/* ========================================================= */
+.fault-type-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fault-type-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(6, 182, 212, 0.6) !important;
+}
+
+.fault-type-card.active {
+  border-color: rgba(6, 182, 212, 0.9) !important;
+  background: rgba(8, 47, 73, 0.4) !important;
+  box-shadow: 0 4px 14px -2px rgba(6, 182, 212, 0.15);
+}
+
+.sensor-pill-btn, .severity-pill-btn {
+  transition: all 0.15s ease-in-out;
+}
+
+.sensor-pill-btn:hover, .severity-pill-btn:hover {
+  transform: translateY(-1px);
+}
+
+body.light .fault-type-card {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.light .fault-type-card .font-bold {
+  color: #1e293b !important;
+}
+
+body.light .fault-type-card p {
+  color: #64748b !important;
+}
+
+body.light .fault-type-card.active {
+  border-color: #0284c7 !important;
+  background: #f0f9ff !important;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.12) !important;
+}
+
+body.light .fault-type-card.active .font-bold {
+  color: #0284c7 !important;
+}
+
+body.light .sensor-pill-btn, 
+body.light .severity-pill-btn {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+body.light .sensor-pill-btn:hover,
+body.light .severity-pill-btn:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+body.light .sensor-pill-btn.active, 
+body.light .severity-pill-btn.active {
+  background-color: #e0f2fe !important;
+  border-color: #0284c7 !important;
+  color: #0369a1 !important;
+}
+
 body.light #fault-inject-form .bg-slate-900\/90 {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
@@ -435,21 +715,199 @@ body.light #slider-dur-val {
   border-color: #fde68a !important;
 }
 
-body.light #view-simulator .bg-slate-900 {
+body.light #recent-injections-list > div {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
 }
 
-/* AI Model Health & XAI Elements */
-body.light #view-models .bg-slate-900\/80,
-body.light #view-models .bg-slate-900 {
-  background-color: #f8fafc !important;
+/* ========================================================= */
+/* TAB 5: AI MODEL HEALTH & XAI OVERRIDES (IMAGE 2 FIX)      */
+/* ========================================================= */
+
+/* Multi-Tier Defense Latency Stack */
+body.light #algorithm-stack-list > div {
+  background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.light #algorithm-stack-list .text-white {
+  color: #0f172a !important;
+}
+
+body.light #algorithm-stack-list .text-gray-400 {
+  color: #64748b !important;
+}
+
+body.light #algorithm-stack-list .bg-gray-800 {
+  background-color: #ecfdf5 !important;
+  color: #047857 !important;
+  border: 1px solid #a7f3d0 !important;
+}
+
+/* XAI Feature Importance Ranking */
+body.light #model-feature-importance {
+  border-color: #e2e8f0 !important;
+}
+
+body.light #model-feature-importance .text-gray-300 {
+  color: #1e293b !important;
+}
+
+body.light #model-feature-importance .text-gray-500 {
+  color: #64748b !important;
+}
+
+body.light #model-feature-importance .bg-gray-800,
+body.light #model-feature-importance .bg-slate-800 {
+  background-color: #e2e8f0 !important;
 }
 
 body.light #plotly-3d-container {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
+}
+
+/* ========================================================= */
+/* TAB 6: PREDICTIVE SENSOR HEALTH & RUL (IMAGE 3 FIX)       */
+/* ========================================================= */
+
+/* Composite Health Summary Banner */
+body.light #view-health .bg-gradient-to-r,
+body.light .bg-gradient-to-r.from-slate-900 {
+  background: linear-gradient(to right, #ffffff, #f8fafc, #ffffff) !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light #view-health .text-white {
+  color: #0f172a !important;
+}
+
+body.light #view-health .text-slate-300,
+body.light #view-health .text-slate-400 {
+  color: #475569 !important;
+}
+
+/* Sensor Diagnostics Cards Grid */
+body.light #health-sensors-grid .bg-cardBg {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.light #health-sensors-grid .bg-slate-900\/80,
+body.light #health-sensors-grid .bg-slate-900 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.light #health-sensors-grid .bg-slate-800 {
+  background-color: #e2e8f0 !important;
+}
+
+body.light #health-sensors-grid .text-slate-200 {
+  color: #0f172a !important;
+}
+
+body.light #health-sensors-grid .text-slate-300 {
+  color: #334155 !important;
+}
+
+body.light #health-sensors-grid .text-slate-400,
+body.light #health-sensors-grid .text-slate-500 {
+  color: #64748b !important;
+}
+
+body.light #view-health select {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* ========================================================= */
+/* TABS 7, 8, 9: IMPUTER, BATCH QC, EDGE AI OVERRIDES        */
+/* ========================================================= */
+body.light #view-imputer select,
+body.light #view-imputer input,
+body.light #view-imputer label {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+body.light #view-imputer button.bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+body.light #view-imputer button.bg-slate-900:hover {
+  background-color: #f1f5f9 !important;
+  color: #0284c7 !important;
+}
+
+body.light #view-imputer #impute-flagged-channels label {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.light #view-imputer #impute-flagged-channels label:hover {
+  border-color: #0284c7 !important;
+}
+
+body.light #view-batch button.bg-slate-900 {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+body.light #view-batch button.bg-slate-900:hover {
+  background-color: #f1f5f9 !important;
+  color: #0284c7 !important;
+}
+
+body.light #view-batch table thead {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+}
+
+body.light #view-batch table tbody tr {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.light #view-batch .w-12.h-12.bg-slate-800 {
+  background-color: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0284c7 !important;
+}
+
+body.light #edge-bench-results-bar {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.light #view-edge .p-4.bg-slate-950 {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+body.light #edge-code-pre {
+  color: #0f172a !important;
+}
+
+body.light #btn-download-edge-code {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+body.light #btn-download-edge-code:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
 }
 
 /* Header Action Buttons & Theme Bar */
@@ -507,67 +965,4 @@ body.light #toast-notification.bg-slate-900 {
   color: #0369a1 !important;
   border-color: #bae6fd !important;
 }
-/* Fault Injection Lab Styles */
-.fault-type-card {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
 
-.fault-type-card:hover {
-  transform: translateY(-1px);
-  border-color: rgba(6, 182, 212, 0.6) !important;
-}
-
-.fault-type-card.active {
-  border-color: rgba(6, 182, 212, 0.9) !important;
-  background: rgba(8, 47, 73, 0.4) !important;
-  box-shadow: 0 4px 14px -2px rgba(6, 182, 212, 0.15);
-}
-
-.sensor-pill-btn, .severity-pill-btn {
-  transition: all 0.15s ease-in-out;
-}
-
-.sensor-pill-btn:hover, .severity-pill-btn:hover {
-  transform: translateY(-1px);
-}
-
-/* Light Mode Overrides for Fault Injection Lab */
-body.light .fault-type-card {
-  background-color: #f8fafc !important;
-  border-color: #e2e8f0 !important;
-}
-
-body.light .fault-type-card .font-bold {
-  color: #1e293b !important;
-}
-
-body.light .fault-type-card p {
-  color: #64748b !important;
-}
-
-body.light .fault-type-card.active {
-  border-color: #0284c7 !important;
-  background: #f0f9ff !important;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.12) !important;
-}
-
-body.light .fault-type-card.active .font-bold {
-  color: #0284c7 !important;
-}
-
-body.light .sensor-pill-btn, body.light .severity-pill-btn {
-  background-color: #f8fafc !important;
-  border-color: #e2e8f0 !important;
-  color: #475569 !important;
-}
-
-body.light .sensor-pill-btn.active, body.light .severity-pill-btn.active {
-  background-color: #e0f2fe !important;
-  border-color: #0284c7 !important;
-  color: #0369a1 !important;
-}
-
-body.light #recent-injections-list > div {
-  background-color: #f8fafc !important;
-  border-color: #e2e8f0 !important;
-}

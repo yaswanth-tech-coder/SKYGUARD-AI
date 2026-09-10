@@ -235,14 +235,10 @@
               </div>
               
               <div class="flex items-center space-x-2.5">
-                <!-- Leaflet Live & Reset View Key Container -->
-                <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs items-center space-x-1">
-                  <button id="btn-map-leaflet" onclick="window.app.resetMapView()" class="px-2.5 py-1 rounded font-bold bg-blue-600 hover:bg-blue-500 text-white transition cursor-pointer flex items-center space-x-1.5 shadow" title="Leaflet Live Active • Click to Reset View">
+                <!-- Leaflet Live Key Container -->
+                <div class="flex bg-slate-900 p-1 rounded-lg border border-slate-800 text-xs items-center space-x-1" id="leaflet-live-container">
+                  <button id="btn-map-leaflet" class="px-2.5 py-1 rounded font-bold bg-blue-600 hover:bg-blue-500 text-white transition cursor-pointer flex items-center space-x-1.5 shadow" title="Leaflet Live Active (Pan-India AWS Network)">
                     <span>🗺️ Leaflet Live</span>
-                  </button>
-                  <button id="btn-reset-map-view" onclick="window.app.resetMapView()" class="px-2.5 py-1 rounded font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer flex items-center space-x-1.5" title="Reset map to Pan-India view">
-                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5 text-cyan-400"></i>
-                    <span>Reset View</span>
                   </button>
                 </div>
 

@@ -83,7 +83,7 @@ class StationMap {
       options: { position: 'topleft' },
       onAdd: (map) => {
         const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-        const btn = L.DomUtil.create('a', '', container);
+        const btn = L.DomUtil.create('a', 'leaflet-reset-view-btn', container);
         btn.innerHTML = '⟲';
         btn.title = 'Reset Map View (Pan-India Topology)';
         btn.href = '#';
@@ -94,9 +94,6 @@ class StationMap {
         btn.style.width = '30px';
         btn.style.height = '30px';
         btn.style.cursor = 'pointer';
-        btn.style.backgroundColor = '#0f172a';
-        btn.style.color = '#38bdf8';
-        btn.style.border = '1px solid #334155';
         btn.style.borderRadius = '4px';
         L.DomEvent.on(btn, 'click', (e) => {
           L.DomEvent.stopPropagation(e);

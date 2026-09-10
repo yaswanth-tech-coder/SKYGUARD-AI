@@ -115,6 +115,12 @@ def get_all_stations(db: Session = Depends(get_db)):
     return results
 
 
+@app.get("/api/stations/latest")
+def get_stations_latest(db: Session = Depends(get_db)):
+    """Fetch all weather stations with current health, status, and latest telemetry (database-connected alias)."""
+    return get_all_stations(db=db)
+
+
 @app.get("/api/stations/{station_id}")
 def get_station_detail(station_id: str, db: Session = Depends(get_db)):
     """Fetch detailed station profile and recent health statistics."""

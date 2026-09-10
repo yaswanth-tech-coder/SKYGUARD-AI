@@ -173,7 +173,22 @@ def get_latest_station_readings():
         except Exception as e:
             logger.warning(f"Flux query against InfluxDB failed or empty: {e}. Serving from live telemetry cache.")
 
-    # Fallback to cache / live fetch if InfluxDB has no entries yet
+    # Primary Source: Query SQLite / PostgreSQL database for rich station models, active anomalies & telemetry
+    try:
+        from backend.database import SessionLocal
+        from backend.main import get_all_stations
+        db = SessionLocal()
+        try:
+            db_stations = get_all_stations(db=db)
+            if db_stations and len(db_stations) > 0:
+                logger.info(f"Retrieved {len(db_stations)} live stations directly from SQLite database.")
+                return db_stations
+        finally:
+            db.close()
+    except Exception as db_err:
+        logger.warning(f"Database query failed in /api/stations/latest: {db_err}")
+
+    # Fallback to cache / live fetch if database is uninitialized
     if not latest_observations_cache:
         try:
             logger.info("Cache empty. Executing on-demand Open-Meteo live weather fetch...")

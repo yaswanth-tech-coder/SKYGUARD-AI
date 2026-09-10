@@ -468,7 +468,8 @@ const API = {
     });
   },
 
-  async injectFault(stationId, anomalyType, sensor, magnitude, durationSteps = 5, severity = 'AUTO') {
+  async injectFault(stationId, anomalyType, sensor, magnitude, durationSteps = 5, severity = 'AUTO', injectedValue = null) {
+    const rawVal = (injectedValue !== null && injectedValue !== undefined && !isNaN(Number(injectedValue))) ? parseFloat(injectedValue) : null;
     return this._fetchOrFallback(`${this.baseUrl}/api/simulate/inject`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -478,11 +479,47 @@ const API = {
         sensor: sensor,
         magnitude: parseFloat(magnitude),
         duration_steps: parseInt(durationSteps),
-        severity: severity
+        severity: severity,
+        injected_value: rawVal
       })
     }, () => {
-      this._mockData.faults.push({ stationId, anomalyType, sensor, magnitude, durationSteps, severity });
-      return { status: "INJECTED", station_id: stationId };
+      const units = { temperature_c: '°C', humidity_pct: '%', pressure_hpa: 'hPa', wind_speed_ms: 'm/s', solar_radiation_wm2: 'W/m²' };
+      const unit = units[sensor] || '';
+      const base = sensor === 'temperature_c' ? 28.5 : sensor === 'humidity_pct' ? 55.0 : 1013.25;
+      const finalVal = rawVal !== null ? rawVal : parseFloat((base + magnitude).toFixed(2));
+      const isCrit = severity === 'CRITICAL' || Math.abs(magnitude) >= 15 || anomalyType === 'SPIKE';
+      const sev = severity !== 'AUTO' ? severity : (isCrit ? 'CRITICAL' : 'HIGH');
+
+      const stn = this._mockData.stations.find(s => s.id === stationId) || this._mockData.stations[0];
+      if (stn) {
+        stn.status = isCrit ? 'CRITICAL' : 'DEGRADED';
+        stn.health_score = isCrit ? 64.0 : 80.0;
+      }
+
+      this._mockData.anomalies.unshift({
+        id: Math.floor(Math.random() * 90000) + 10000,
+        station_id: stationId,
+        station_code: stn ? stn.code : stationId,
+        station_name: stn ? stn.name : 'AWS Node',
+        timestamp: new Date().toISOString(),
+        sensor: sensor,
+        anomaly_type: anomalyType,
+        severity: sev,
+        confidence_score: 0.98,
+        raw_value: finalVal,
+        expected_range: `${base.toFixed(1)} ${unit}`,
+        ml_model: "Fault-Injection-Studio",
+        explanation: `Injected synthetic ${anomalyType} fault (${sev}) with faulty value ${finalVal} ${unit}.`,
+        status: "DETECTED",
+        drift: `${anomalyType} (${finalVal} ${unit})`,
+        slope: "Instantaneous Step Rate-of-Change",
+        root_cause: "Hardware / Transducer Sensor Anomaly",
+        action: "Inspect and recalibrate sensor transducer element",
+        injected_value: `${finalVal} ${unit}`
+      });
+
+      this._mockData.faults.push({ stationId, anomalyType, sensor, magnitude, durationSteps, severity, injectedValue: finalVal });
+      return { status: "INJECTED", station_id: stationId, raw_value: finalVal, injected_value: `${finalVal} ${unit}` };
     });
   },
 

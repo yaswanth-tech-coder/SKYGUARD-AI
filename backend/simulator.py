@@ -257,7 +257,8 @@ class WeatherTelemetrySimulator:
         sensor: str,
         magnitude: float,
         duration_steps: int = 5,
-        severity: Optional[str] = "AUTO"
+        severity: Optional[str] = "AUTO",
+        injected_value: Optional[float] = None
     ) -> Dict[str, Any]:
         """Register a new synthetic fault to be injected into future simulation timesteps."""
         if station_id not in self.active_faults:
@@ -270,7 +271,8 @@ class WeatherTelemetrySimulator:
             "remaining_steps": duration_steps,
             "initial_magnitude": magnitude,
             "current_step": 0,
-            "severity": (severity or "AUTO").upper()
+            "severity": (severity or "AUTO").upper(),
+            "injected_value": injected_value if injected_value is not None else magnitude
         }
         self.active_faults[station_id].append(fault_entry)
         return {
@@ -360,14 +362,20 @@ class WeatherTelemetrySimulator:
                 f_type = fault["anomaly_type"]
                 f_sensor = fault["sensor"]
                 f_mag = fault["magnitude"]
+                f_injected = fault.get("injected_value")
                 fault["current_step"] += 1
                 fault["remaining_steps"] -= 1
 
-                # Apply fault modification based on type
-                if f_type == "SPIKE":
+                if fault["remaining_steps"] > 0:
+                    retained_faults.append(fault)
+
+                # If an explicit injected faulty value was given by operator, apply it directly
+                if f_injected is not None and f_sensor in reading:
+                    reading[f_sensor] = round(float(f_injected), 2)
+                elif f_type == "SPIKE":
                     # Instantaneous spike
                     if f_sensor in reading:
-                        reading[f_sensor] += f_mag
+                        reading[f_sensor] = round(float(f_injected), 2) if f_injected is not None else reading[f_sensor] + f_mag
                     elif f_sensor == "all":
                         reading["temperature_c"] += 14.0
                         reading["pressure_hpa"] -= 12.0
@@ -376,35 +384,37 @@ class WeatherTelemetrySimulator:
                     # Cumulative drift factor per step
                     step_drift = (fault["current_step"] * f_mag)
                     if f_sensor in reading:
-                        reading[f_sensor] += step_drift
+                        reading[f_sensor] = round(float(f_injected), 2) if f_injected is not None else reading[f_sensor] + step_drift
 
                 elif f_type == "FROZEN_SENSOR":
                     # Lock reading to cached value or fixed value
-                    if stn_id not in self.frozen_cache:
-                        self.frozen_cache[stn_id] = {}
-                    if f_sensor not in self.frozen_cache[stn_id]:
-                        self.frozen_cache[stn_id][f_sensor] = reading.get(f_sensor, f_mag)
-                    
-                    target_frozen_val = self.frozen_cache[stn_id][f_sensor]
-                    if f_sensor in reading:
-                        reading[f_sensor] = target_frozen_val
+                    if f_injected is not None and f_sensor in reading:
+                        reading[f_sensor] = round(float(f_injected), 2)
+                    else:
+                        if stn_id not in self.frozen_cache:
+                            self.frozen_cache[stn_id] = {}
+                        if f_sensor not in self.frozen_cache[stn_id]:
+                            self.frozen_cache[stn_id][f_sensor] = reading.get(f_sensor, f_mag)
+                        target_frozen_val = self.frozen_cache[stn_id][f_sensor]
+                        if f_sensor in reading:
+                            reading[f_sensor] = target_frozen_val
 
                 elif f_type == "CROSS_SENSOR_INCONSISTENCY":
                     # Violate dew point > temp or night solar radiation
-                    if f_sensor == "temperature" or f_sensor == "humidity" or f_sensor == "dew_point":
-                        reading["dew_point_c"] = reading["temperature_c"] + abs(f_mag)
-                    elif f_sensor == "solar_radiation":
-                        reading["solar_radiation_wm2"] = 350.0  # e.g. nocturnal radiation
+                    if f_sensor in ["temperature", "humidity", "dew_point", "temperature_c", "humidity_pct", "dew_point_c"]:
+                        reading["dew_point_c"] = round(float(f_injected), 2) if f_injected is not None else reading["temperature_c"] + abs(f_mag)
+                    elif f_sensor in ["solar_radiation", "solar_radiation_wm2"]:
+                        reading["solar_radiation_wm2"] = round(float(f_injected), 1) if f_injected is not None else 350.0
 
                 elif f_type == "WMO_RANGE_VIOLATION":
                     # Impossible physical bounds
                     if f_sensor in reading:
-                        reading[f_sensor] = f_mag
+                        reading[f_sensor] = round(float(f_injected), 2) if f_injected is not None else f_mag
 
                 elif f_type == "SPATIAL_DISCREPANCY":
                     # Multi-node spatial divergence against nearest AWS neighbors
                     if f_sensor in reading:
-                        reading[f_sensor] += (f_mag if abs(f_mag) > 5 else 22.5)
+                        reading[f_sensor] = round(float(f_injected), 2) if f_injected is not None else reading[f_sensor] + (f_mag if abs(f_mag) > 5 else 22.5)
 
                 elif f_type == "DROPOUT":
                     # Total telemetry signal loss / null communication

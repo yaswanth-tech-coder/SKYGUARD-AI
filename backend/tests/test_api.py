@@ -41,22 +41,30 @@ class TestAWSAnomalyDetectionSystem(unittest.TestCase):
         print(f"PASS: Anomalies retrieved = {len(data)}")
 
     def test_04_fault_injection_and_step(self):
-        # 1. Inject a temperature spike into AWS-IND-05 (Jaisalmer Thar Desert)
+        # 1. Inject a temperature spike into AWS-IND-05 (Jaisalmer Thar Desert) with given faulty value
         inj_res = self.client.post("/api/simulate/inject", json={
             "station_id": "AWS-IND-05",
             "anomaly_type": "SPIKE",
             "sensor": "temperature_c",
             "magnitude": 22.0,
-            "duration_steps": 2
+            "duration_steps": 2,
+            "injected_value": 50.5
         })
         self.assertEqual(inj_res.status_code, 200)
+        self.assertEqual(inj_res.json()["raw_value"], 50.5)
+
+        # Verify given faulty value is immediately visible in Alert Feed API
+        anoms = self.client.get("/api/anomalies?status=DETECTED&station_id=AWS-IND-05").json()
+        self.assertGreaterEqual(len(anoms), 1)
+        self.assertEqual(anoms[0]["raw_value"], 50.5)
+        self.assertIn("50.50", anoms[0]["injected_value"])
 
         # 2. Advance simulation step
         step_res = self.client.post("/api/simulate/step")
         self.assertEqual(step_res.status_code, 200)
         step_data = step_res.json()
         self.assertGreater(step_data["anomalies_detected"], 0)
-        print(f"PASS: Fault injected and detected in step: {step_data['anomalies_detected']} anomalies flagged")
+        print(f"PASS: Fault injected with given value (50.5°C) and visible in feed: {step_data['anomalies_detected']} anomalies flagged")
 
     def test_05_triage_anomaly(self):
         # Fetch an open anomaly

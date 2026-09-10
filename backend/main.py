@@ -467,17 +467,105 @@ def reset_all_active_anomalies(db: Session = Depends(get_db)):
 # -------------------------------------------------------------
 
 @app.post("/api/simulate/inject")
-def inject_synthetic_fault(req: FaultInjectionRequest):
-    """Inject a synthetic meteorological or sensor fault into an AWS station."""
+def inject_synthetic_fault(req: FaultInjectionRequest, db: Session = Depends(get_db)):
+    """
+    Inject a synthetic meteorological or sensor fault into an AWS station,
+    register in simulator, update latest SensorReading, and immediately persist
+    an AnomalyEvent in the database with the given faulty value for Alert Feed & Triage.
+    """
     res = simulator.inject_fault(
         station_id=req.station_id,
         anomaly_type=req.anomaly_type,
         sensor=req.sensor,
         magnitude=req.magnitude,
         duration_steps=req.duration_steps,
-        severity=req.severity
+        severity=req.severity,
+        injected_value=req.injected_value
     )
-    return res
+
+    # Determine given faulty value
+    val = req.injected_value if req.injected_value is not None else req.magnitude
+
+    # Determine severity
+    sev = req.severity.upper() if req.severity and req.severity.upper() != "AUTO" else (
+        "CRITICAL" if req.anomaly_type in ["SPIKE", "SQUALL_EXTREME", "WMO_RANGE_VIOLATION"] or abs(req.magnitude) >= 15 else "HIGH"
+    )
+
+    stn = db.query(Station).filter(Station.id == req.station_id).first()
+    now_time = datetime.datetime.now(datetime.timezone.utc)
+
+    units = {
+        "temperature_c": "°C", "humidity_pct": "%", "pressure_hpa": "hPa",
+        "wind_speed_ms": "m/s", "solar_radiation_wm2": "W/m²", "dew_point_c": "°C",
+        "rain_rate_mmh": "mm/h", "battery_v": "V"
+    }
+    unit = units.get(req.sensor, "")
+
+    # Clean explanation with root cause and action
+    explanation = (
+        f"Injected synthetic {req.anomaly_type} fault on {req.sensor}. "
+        f"Faulty observation: {val:.2f} {unit}. Severity: {sev}. "
+        f"[Root Cause: Hardware / Transducer Sensor Anomaly] "
+        f"Action: Inspect and recalibrate {req.sensor} sensor transducer element"
+    )
+
+    # 1. Immediately persist AnomalyEvent with given faulty value
+    anom_event = AnomalyEvent(
+        station_id=req.station_id,
+        timestamp=now_time,
+        sensor=req.sensor,
+        anomaly_type=req.anomaly_type,
+        severity=sev,
+        confidence_score=0.98,
+        raw_value=val,
+        expected_range=f"Normal Operating Baseline ({unit})" if unit else "Normal Baseline",
+        ml_model="Fault-Injection-Studio",
+        explanation=explanation,
+        status="DETECTED"
+    )
+    db.add(anom_event)
+
+    # 2. Update station status and health score in DB
+    if stn:
+        stn.status = "CRITICAL" if sev == "CRITICAL" else "DEGRADED"
+        stn.health_score = 64.0 if sev == "CRITICAL" else 80.0
+
+    # 3. Create or update latest SensorReading with the given faulty value
+    latest_reading = (
+        db.query(SensorReading)
+        .filter(SensorReading.station_id == req.station_id)
+        .order_by(desc(SensorReading.timestamp))
+        .first()
+    )
+    new_reading = SensorReading(
+        station_id=req.station_id,
+        timestamp=now_time,
+        temperature_c=latest_reading.temperature_c if latest_reading else 28.5,
+        humidity_pct=latest_reading.humidity_pct if latest_reading else 55.0,
+        pressure_hpa=latest_reading.pressure_hpa if latest_reading else 1013.25,
+        wind_speed_ms=latest_reading.wind_speed_ms if latest_reading else 3.5,
+        wind_direction_deg=latest_reading.wind_direction_deg if latest_reading else 180.0,
+        solar_radiation_wm2=latest_reading.solar_radiation_wm2 if latest_reading else 0.0,
+        rain_rate_mmh=latest_reading.rain_rate_mmh if latest_reading else 0.0,
+        dew_point_c=latest_reading.dew_point_c if latest_reading else 18.0,
+        battery_v=latest_reading.battery_v if latest_reading else 12.5,
+        is_anomaly=True,
+        anomaly_score=0.98
+    )
+    if hasattr(new_reading, req.sensor):
+        setattr(new_reading, req.sensor, val)
+    db.add(new_reading)
+
+    db.commit()
+
+    return {
+        "status": "INJECTED",
+        "station_id": req.station_id,
+        "anomaly_id": anom_event.id,
+        "raw_value": val,
+        "injected_value": f"{val:.2f} {unit}".strip(),
+        "fault": res.get("fault")
+    }
 
 
 @app.post("/api/simulate/clear")
@@ -623,6 +711,12 @@ def advance_simulation_step(db: Session = Depends(get_db)):
         # Persist Anomalies
         for anom in anomalies:
             total_anomalies_detected += 1
+            raw_v = anom.get("raw_value")
+            if stn.id in simulator.active_faults and simulator.active_faults[stn.id]:
+                for f in simulator.active_faults[stn.id]:
+                    if f.get("sensor") == anom["sensor"] and f.get("injected_value") is not None:
+                        raw_v = f["injected_value"]
+                        break
             db_anom = AnomalyEvent(
                 station_id=stn.id,
                 timestamp=current_simulation_time,
@@ -630,13 +724,41 @@ def advance_simulation_step(db: Session = Depends(get_db)):
                 anomaly_type=anom["anomaly_type"],
                 severity=anom["severity"],
                 confidence_score=anom["confidence_score"],
-                raw_value=anom.get("raw_value"),
+                raw_value=raw_v,
                 expected_range=anom.get("expected_range"),
                 ml_model=anom["ml_model"],
                 explanation=f"{anom['explanation']} [Root Cause: {anom.get('root_cause', 'N/A')}] Action: {anom.get('maintenance_guide', 'N/A')}",
                 status="DETECTED"
             )
             db.add(db_anom)
+
+        # Ensure any active injected faults on this station are recorded if not already detected
+        if stn.id in simulator.active_faults and simulator.active_faults[stn.id]:
+            existing_fault_sensors = set(a["sensor"] for a in anomalies)
+            for f in simulator.active_faults[stn.id]:
+                f_sensor = f.get("sensor")
+                if f_sensor and f_sensor != "all" and f_sensor not in existing_fault_sensors:
+                    total_anomalies_detected += 1
+                    f_val = f.get("injected_value", f.get("magnitude", reading_dict.get(f_sensor)))
+                    f_sev = f.get("severity", "CRITICAL")
+                    if f_sev == "AUTO":
+                        f_sev = "CRITICAL" if abs(f.get("magnitude", 0)) > 15 else "HIGH"
+                    units_m = {"temperature_c": "°C", "humidity_pct": "%", "pressure_hpa": "hPa", "wind_speed_ms": "m/s", "solar_radiation_wm2": "W/m²", "dew_point_c": "°C"}
+                    unit_m = units_m.get(f_sensor, "")
+                    injected_anom = AnomalyEvent(
+                        station_id=stn.id,
+                        timestamp=current_simulation_time,
+                        sensor=f_sensor,
+                        anomaly_type=f.get("anomaly_type", "SPIKE"),
+                        severity=f_sev,
+                        confidence_score=0.98,
+                        raw_value=f_val,
+                        expected_range=f"Normal Operating Baseline ({unit_m})" if unit_m else "Normal Baseline",
+                        ml_model="Fault-Injection-Studio",
+                        explanation=f"Active synthetic {f.get('anomaly_type')} fault on {f_sensor}. Faulty observation: {f_val:.2f} {unit_m}. [Root Cause: Hardware / Transducer Sensor Anomaly] Action: Inspect and recalibrate {f_sensor} sensor element",
+                        status="DETECTED"
+                    )
+                    db.add(injected_anom)
 
         step_details.append({
             "station_id": stn.id,

@@ -1232,8 +1232,8 @@ class WeatherApp {
     const stn = this.stations.find(s => s.id === stnId);
 
     try {
-      await API.injectFault(stnId, anomType, sensor, magnitude, duration, severity);
-      this.showToast(`⚡ Physical fault injected into ${stnId}: ${anomType} (${rawVal} ${unit})! Running AI Sentinel...`, 'amber');
+      await API.injectFault(stnId, anomType, sensor, magnitude, duration, severity, rawVal);
+      this.showToast(`⚡ Physical fault injected into ${stnId}: ${anomType} (${rawVal} ${unit})!`, 'amber');
 
       // Log into Recent Injections
       this.recentInjections.unshift({
@@ -1251,14 +1251,11 @@ class WeatherApp {
       });
       this.renderRecentInjections();
 
-      // Auto-step immediately so that the Multi-Tier AI Detection processes the new faulty reading
-      const stepRes = await API.stepSimulation();
-
       // Reset alert filters so the fresh injected anomaly is immediately visible at the top of the feed!
       this.alertFilters = {
         station_id: '',
         severity: '',
-        status: '',
+        status: 'DETECTED',
         anomaly_type: ''
       };
       const fStn = document.getElementById('filter-station');
@@ -1266,19 +1263,27 @@ class WeatherApp {
       const fSev = document.getElementById('filter-severity');
       if (fSev) fSev.value = '';
       const fStat = document.getElementById('filter-status');
-      if (fStat) fStat.value = '';
+      if (fStat) fStat.value = 'DETECTED';
       const fTyp = document.getElementById('filter-type');
       if (fTyp) fTyp.value = '';
+
+      // Update subtab active styling to "Active Anomalies"
+      const tabActive = document.getElementById('subtab-all-active');
+      const tabCrit = document.getElementById('subtab-critical-only');
+      const tabAll = document.getElementById('subtab-all-events');
+      const inactiveClass = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center space-x-2 cursor-pointer bg-slate-900 text-slate-400 border border-slate-800 hover:text-cyan-400';
+      if (tabActive) tabActive.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-2 cursor-pointer bg-amber-950/70 text-amber-300 border border-amber-500 shadow-sm';
+      if (tabCrit) tabCrit.className = inactiveClass;
+      if (tabAll) tabAll.className = inactiveClass;
 
       // Refresh summary KPIs, stations, chart telemetry, and alerts feed
       await this.refreshSummaryAndAlerts();
       await this.refreshAllData();
       await this.loadAlertsFeed();
 
-      this.showToast(`🚨 AI Engine detected ${stepRes.anomalies_detected} anomalies! Showing faulty values in Alert Feed.`, 'rose');
-
       // Switch to Alert Feed & Triage tab so the user immediately sees the faulty values!
       this.switchTab('alerts');
+      this.showToast(`🚨 Active anomaly registered! Showing faulty value (${rawVal} ${unit}) in Alert Feed.`, 'rose');
     } catch (err) {
       alert(`Injection error: ${err.message}`);
     }

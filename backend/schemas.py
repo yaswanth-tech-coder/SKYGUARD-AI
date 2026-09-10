@@ -111,6 +111,7 @@ class FaultInjectionRequest(BaseModel):
     )
     duration_steps: int = Field(default=5, description="Number of simulation timesteps the fault persists")
     severity: Optional[str] = Field(default="AUTO", description="AUTO, CRITICAL, WARNING, HIGH, MEDIUM, LOW")
+    injected_value: Optional[float] = Field(default=None, description="Exact given faulty value from Fault Injection Studio")
 
 
 class SimulationStepResponse(BaseModel):

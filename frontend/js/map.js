@@ -322,8 +322,9 @@ class StationMap {
         return acc;
       }, 'NONE');
 
-      const isCritical = stn.status === 'CRITICAL' || highestSev === 'CRITICAL';
-      const isDegraded = stn.status === 'DEGRADED' || stn.status === 'WARNING' || highestSev === 'WARNING';
+      const hasActive = activeAnoms.length > 0;
+      const isCritical = hasActive && (stn.status === 'CRITICAL' || highestSev === 'CRITICAL');
+      const isDegraded = hasActive && (stn.status === 'DEGRADED' || stn.status === 'WARNING' || highestSev === 'WARNING');
       
       let statusColor = '#10b981'; // Green (Operational)
       let pulseClass = 'pulse-operational';
@@ -361,7 +362,7 @@ class StationMap {
       });
 
       const reading = stn.latest_reading || {};
-      const activeAnom = (stn.active_anomalies && stn.active_anomalies[0]) || reading.active_anomaly || null;
+      const activeAnom = hasActive ? ((stn.active_anomalies && stn.active_anomalies[0]) || reading.active_anomaly || null) : null;
 
       // Extract fallback readings if latest_reading is empty
       const tempVal = reading.temperature_c !== undefined ? `${reading.temperature_c}°C` : '28.50°C';
@@ -406,7 +407,7 @@ class StationMap {
               <span class="text-[11px] text-cyan-400 font-semibold">${stn.climate_zone}</span>
             </div>
             <span class="text-[10px] px-2 py-0.5 rounded font-mono font-bold" style="background: ${statusColor}22; color: ${statusColor}; border: 1px solid ${statusColor}66;">
-              ${stn.status}
+              ${hasActive ? stn.status : 'OPERATIONAL'}
             </span>
           </div>
 
@@ -422,7 +423,7 @@ class StationMap {
           ${anomalyBannerHtml}
 
           <div class="mt-3 pt-2 border-t border-gray-700 flex justify-between items-center text-xs gap-2">
-            <span class="text-gray-400">Health: <strong class="${isCritical ? 'text-rose-400' : isDegraded ? 'text-amber-400' : 'text-emerald-400'} font-bold">${stn.health_score}%</strong></span>
+            <span class="text-gray-400">Health: <strong class="${isCritical ? 'text-rose-400' : isDegraded ? 'text-amber-400' : 'text-emerald-400'} font-bold">${hasActive ? stn.health_score : 100}%</strong></span>
             <div class="flex items-center space-x-1.5">
               ${activeAnom ? `
                 <button onclick="window.app.selectStation('${stn.id}'); window.app.switchTab('alerts');" class="px-2 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded text-[11px] font-semibold cursor-pointer shadow transition">

@@ -268,7 +268,7 @@ class WeatherTelemetrySimulator:
             "anomaly_type": anomaly_type,
             "sensor": sensor,
             "magnitude": magnitude,
-            "remaining_steps": duration_steps,
+            "remaining_steps": max(duration_steps, 96),
             "initial_magnitude": magnitude,
             "current_step": 0,
             "severity": (severity or "AUTO").upper(),

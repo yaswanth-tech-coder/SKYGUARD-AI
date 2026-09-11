@@ -37,8 +37,12 @@ class SensorHealthForecaster:
         overall_station_health = 100.0
 
         for s in sensors:
-            # 1. Count recent anomalies on this channel
-            s_anoms = [a for a in recent_anomalies if a.get("sensor") == s or s in str(a.get("sensor", ""))]
+            # 1. Count active unresolved anomalies on this channel
+            s_anoms = [
+                a for a in recent_anomalies
+                if (a.get("sensor") == s or s in str(a.get("sensor", "")))
+                and a.get("status", "DETECTED") == "DETECTED"
+            ]
             crit_anoms = sum(1 for a in s_anoms if a.get("severity") == "CRITICAL")
             high_anoms = sum(1 for a in s_anoms if a.get("severity") == "HIGH")
             med_anoms = sum(1 for a in s_anoms if a.get("severity") == "MEDIUM")

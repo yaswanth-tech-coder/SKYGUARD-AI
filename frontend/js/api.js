@@ -534,8 +534,7 @@ const API = {
         const stn = this._mockData.stations.find(s => s.id === fault.stationId) || this._mockData.stations[0];
         const units = { temperature_c: '°C', humidity_pct: '%', pressure_hpa: 'hPa', wind_speed_ms: 'm/s', solar_radiation_wm2: 'W/m²' };
         const unit = units[fault.sensor] || '';
-        const base = fault.sensor === 'temperature_c' ? 28.5 : fault.sensor === 'humidity_pct' ? 55.0 : 1013.25;
-        const faultyVal = (base + fault.magnitude).toFixed(2);
+        const faultyVal = (fault.injectedValue !== undefined && fault.injectedValue !== null) ? fault.injectedValue : parseFloat((base + fault.magnitude).toFixed(2));
 
         let assignedSeverity = 'CRITICAL';
         if (fault.severity && fault.severity !== 'AUTO') {
@@ -568,13 +567,12 @@ const API = {
           confidence_score: isCrit ? 0.96 : 0.84,
           raw_value: parseFloat(faultyVal),
           expected_range: `${base.toFixed(1)} ${unit}`,
-          ml_model: "Tier-1:Dynamic-StepLimit",
-          explanation: `Injected synthetic ${fault.anomalyType} fault (${assignedSeverity}) with magnitude offset ${fault.magnitude > 0 ? '+' : ''}${fault.magnitude}${unit}.`,
+          ml_model: "Fault-Injection-Studio",
+          explanation: `Injected synthetic ${fault.anomalyType} fault (${assignedSeverity}) with faulty value ${faultyVal} ${unit}.`,
           status: "DETECTED",
           drift: `${fault.anomalyType} (${faultyVal} ${unit})`,
           slope: "Instantaneous Step Rate-of-Change",
-          root_cause: "SYNTHETIC_FAULT_INJECTION_STUDIO",
-          action: "Inspect and recalibrate sensor transducer element",
+          root_cause: "Hardware / Transducer Sensor Anomaly",
           injected_value: `${faultyVal} ${unit}`
         });
         created = 1;

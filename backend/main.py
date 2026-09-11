@@ -111,7 +111,27 @@ def get_all_stations(db: Session = Depends(get_db)):
         )
         data["active_anomalies_count"] = len(open_anomalies)
         data["active_anomalies"] = [format_anomaly_details(a) for a in open_anomalies]
+        # Synchronize station status and health score with live active anomalies
+        if len(open_anomalies) == 0:
+            if stn.status != "OPERATIONAL" or stn.health_score != 100.0:
+                stn.status = "OPERATIONAL"
+                stn.health_score = 100.0
+                db.add(stn)
+            data["status"] = "OPERATIONAL"
+            data["health_score"] = 100.0
+        else:
+            has_crit = any(a.severity == "CRITICAL" for a in open_anomalies)
+            stn_status = "CRITICAL" if has_crit else "DEGRADED"
+            stn_health = 64.0 if has_crit else 80.0
+            if stn.status != stn_status or stn.health_score != stn_health:
+                stn.status = stn_status
+                stn.health_score = stn_health
+                db.add(stn)
+            data["status"] = stn_status
+            data["health_score"] = stn_health
+
         results.append(data)
+    db.commit()
     return results
 
 
@@ -150,6 +170,17 @@ def get_station_detail(station_id: str, db: Session = Depends(get_db)):
     data["active_anomalies_count"] = len(open_anomalies)
     data["active_anomalies"] = [format_anomaly_details(a) for a in open_anomalies]
 
+    if len(open_anomalies) == 0:
+        if stn.status != "OPERATIONAL" or stn.health_score != 100.0:
+            stn.status = "OPERATIONAL"
+            stn.health_score = 100.0
+            db.commit()
+        data["status"] = "OPERATIONAL"
+        data["health_score"] = 100.0
+    else:
+        has_crit = any(a.severity == "CRITICAL" for a in open_anomalies)
+        data["status"] = "CRITICAL" if has_crit else "DEGRADED"
+        data["health_score"] = 64.0 if has_crit else 80.0
 
     # Anomaly breakdown by type
     anom_type_counts = (
@@ -246,7 +277,8 @@ def format_anomaly_details(a: AnomalyEvent) -> Dict[str, Any]:
         "solar_radiation_wm2": "W/m²",
         "dew_point_c": "°C",
         "battery_v": "V",
-        "rain_rate_mmh": "mm/h"
+        "rain_rate_mmh": "mm/h",
+        "cross_sensor:thermodynamic": "°C"
     }
     unit = units.get(a.sensor, "")
     val_str = f"{a.raw_value:.2f} {unit}".strip() if a.raw_value is not None else "N/A"
@@ -714,9 +746,24 @@ def advance_simulation_step(db: Session = Depends(get_db)):
             raw_v = anom.get("raw_value")
             if stn.id in simulator.active_faults and simulator.active_faults[stn.id]:
                 for f in simulator.active_faults[stn.id]:
-                    if f.get("sensor") == anom["sensor"] and f.get("injected_value") is not None:
+                    if (f.get("sensor") == anom["sensor"] or anom["sensor"] == "cross_sensor:thermodynamic") and f.get("injected_value") is not None:
                         raw_v = f["injected_value"]
                         break
+
+            # If there is already an active DETECTED anomaly on this station & sensor, refresh timestamp without overwriting injected values
+            existing_active = db.query(AnomalyEvent).filter(
+                AnomalyEvent.station_id == stn.id,
+                AnomalyEvent.sensor == anom["sensor"],
+                AnomalyEvent.status == "DETECTED"
+            ).first()
+            if existing_active:
+                existing_active.timestamp = current_simulation_time
+                if existing_active.ml_model == "Fault-Injection-Studio":
+                    continue
+                else:
+                    existing_active.raw_value = raw_v
+                    continue
+
             db_anom = AnomalyEvent(
                 station_id=stn.id,
                 timestamp=current_simulation_time,
@@ -734,10 +781,18 @@ def advance_simulation_step(db: Session = Depends(get_db)):
 
         # Ensure any active injected faults on this station are recorded if not already detected
         if stn.id in simulator.active_faults and simulator.active_faults[stn.id]:
-            existing_fault_sensors = set(a["sensor"] for a in anomalies)
             for f in simulator.active_faults[stn.id]:
                 f_sensor = f.get("sensor")
-                if f_sensor and f_sensor != "all" and f_sensor not in existing_fault_sensors:
+                if f_sensor and f_sensor != "all":
+                    existing_fault = db.query(AnomalyEvent).filter(
+                        AnomalyEvent.station_id == stn.id,
+                        AnomalyEvent.sensor == f_sensor,
+                        AnomalyEvent.status == "DETECTED"
+                    ).first()
+                    if existing_fault:
+                        existing_fault.timestamp = current_simulation_time
+                        continue
+
                     total_anomalies_detected += 1
                     f_val = f.get("injected_value", f.get("magnitude", reading_dict.get(f_sensor)))
                     f_sev = f.get("severity", "CRITICAL")
@@ -1098,14 +1153,18 @@ def get_station_sensor_health(station_id: str, db: Session = Depends(get_db)):
     )
     history = [r.to_dict() for r in reversed(recent_readings)]
     
-    recent_anomalies = (
+    # Query active unresolved anomalies for this station
+    active_anomalies = (
         db.query(AnomalyEvent)
-        .filter(AnomalyEvent.station_id == station_id)
+        .filter(
+            AnomalyEvent.station_id == station_id,
+            AnomalyEvent.status == "DETECTED"
+        )
         .order_by(desc(AnomalyEvent.timestamp))
         .limit(20)
         .all()
     )
-    anom_dicts = [a.to_dict() for a in recent_anomalies]
+    anom_dicts = [a.to_dict() for a in active_anomalies]
     
     health_data = anomaly_engine.health_forecaster.evaluate_sensor_health(
         station_id=station_id,

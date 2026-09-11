@@ -363,6 +363,8 @@ class WeatherApp {
         await this.loadStationChartData().catch(e => console.warn(e));
       } else if (this.activeTab === 'models') {
         await this.loadPlotly3dScatter().catch(e => console.warn(e));
+      } else if (this.activeTab === 'health') {
+        await this.loadSensorHealthTab(this.selectedStationId).catch(e => console.warn(e));
       }
     } catch (err) {
       console.error('Error refreshing all data:', err);
@@ -387,8 +389,9 @@ class WeatherApp {
         return acc;
       }, 'NONE');
 
-      const isCritical = stn.status === 'CRITICAL' || highestSev === 'CRITICAL';
-      const isWarning = stn.status === 'DEGRADED' || stn.status === 'WARNING' || highestSev === 'WARNING';
+      const hasActive = activeAnoms.length > 0;
+      const isCritical = hasActive && (stn.status === 'CRITICAL' || highestSev === 'CRITICAL');
+      const isWarning = hasActive && (stn.status === 'DEGRADED' || stn.status === 'WARNING' || highestSev === 'WARNING');
       
       const statusLabel = isCritical ? 'Critical' : isWarning ? 'Warning' : 'Healthy';
       const statusClass = isCritical ? 'bg-rose-950/80 text-rose-300 border border-rose-800/80' :
@@ -879,6 +882,10 @@ class WeatherApp {
       if (this.selectedStationId) {
         await this.selectStation(this.selectedStationId);
         await this.loadStationChartData().catch(e => console.warn(e));
+        await this.loadSensorHealthTab(this.selectedStationId).catch(e => console.warn(e));
+      }
+      if (this.mapManager && typeof this.mapManager.updateStations === 'function') {
+        this.mapManager.updateStations(this.stations);
       }
       await this.loadPlotly3dScatter().catch(e => console.warn(e));
       this.showToast(`Anomaly #${anomalyId} updated to ${newStatus}`, 'emerald');
@@ -897,6 +904,12 @@ class WeatherApp {
       await this.loadAlertsFeed();
       await this.loadStationChartData().catch(e => console.warn(e));
       await this.loadPlotly3dScatter().catch(e => console.warn(e));
+      if (this.selectedStationId) {
+        await this.loadSensorHealthTab(this.selectedStationId).catch(e => console.warn(e));
+      }
+      if (this.mapManager && typeof this.mapManager.updateStations === 'function') {
+        this.mapManager.updateStations(this.stations);
+      }
       this.showToast(`🧹 Active anomalies reset to 0 (${res.resetted_count} triaged). Stations restored to 100% Operational.`, 'emerald');
     } catch (err) {
       console.error('Error resetting active anomalies:', err);
@@ -1208,7 +1221,7 @@ class WeatherApp {
     const sensor = document.getElementById('fault-sensor-select')?.value || this.selectedSensor || 'temperature_c';
     const severity = document.getElementById('fault-severity-select')?.value || this.selectedSeverity || 'AUTO';
     const rawVal = parseFloat(document.getElementById('fault-magnitude-input')?.value || document.getElementById('fault-magnitude-slider')?.value || 50.5);
-    const duration = 5;
+    const duration = 96;
 
     // Baselines for calculating delta magnitude offset
     const baselines = {
@@ -1376,6 +1389,12 @@ class WeatherApp {
       await this.loadAlertsFeed().catch(e => console.warn(e));
       await this.loadStationChartData().catch(e => console.warn(e));
       await this.loadPlotly3dScatter().catch(e => console.warn(e));
+      if (this.selectedStationId) {
+        await this.loadSensorHealthTab(this.selectedStationId).catch(e => console.warn(e));
+      }
+      if (this.mapManager && typeof this.mapManager.updateStations === 'function') {
+        this.mapManager.updateStations(this.stations);
+      }
     } catch (err) {
       this.showToast(`Clear error: ${err.message}`, 'rose');
     }

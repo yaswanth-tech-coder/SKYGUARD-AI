@@ -43,6 +43,21 @@ class SensorHealthForecaster:
                 if (a.get("sensor") == s or s in str(a.get("sensor", "")))
                 and a.get("status", "DETECTED") == "DETECTED"
             ]
+
+            if not s_anoms:
+                # No active unresolved anomalies on this sensor: nominal 100% optimal health
+                health_profiles[s] = {
+                    "sensor_name": sensor_names.get(s, s),
+                    "health_score": 100.0,
+                    "status": "OPTIMAL_HEALTH",
+                    "drift_slope_per_step": 0.0,
+                    "drift_r_squared": 0.0,
+                    "estimated_rul_days": 365,
+                    "recent_fault_count": 0,
+                    "maintenance_recommendation": "Sensor operational; nominal calibration within WMO uncertainty limits."
+                }
+                continue
+
             crit_anoms = sum(1 for a in s_anoms if a.get("severity") == "CRITICAL")
             high_anoms = sum(1 for a in s_anoms if a.get("severity") == "HIGH")
             med_anoms = sum(1 for a in s_anoms if a.get("severity") == "MEDIUM")
@@ -67,10 +82,8 @@ class SensorHealthForecaster:
                         # If monotonic drift is prominent
                         if r_squared > 0.65 and abs(drift_slope) > 0.05:
                             penalty += min(35.0, abs(drift_slope) * 200.0)
-                            # Estimate RUL based on slope reaching failure limit
                             drift_limit = 5.0 if s == "temperature_c" else 20.0 if s == "humidity_pct" else 15.0
                             steps_to_fail = max(10, int((drift_limit) / max(0.001, abs(drift_slope))))
-                            # Assuming 15-min observation steps: 96 steps/day
                             rul_days = max(3, int(steps_to_fail / 96))
                     except Exception:
                         pass

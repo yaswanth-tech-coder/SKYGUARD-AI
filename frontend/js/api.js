@@ -104,6 +104,10 @@ const API = {
     faults: []
   },
 
+  _clientInjectedAnomalies: [],
+  _resolvedAnomalyIds: new Set(),
+  _activeInjectedFaults: {},
+
   _wakeProbeRunning: false,
 
   _scheduleBackendWakeProbe() {
@@ -190,9 +194,16 @@ const API = {
     const now = new Date();
     const hour = now.getHours() + now.getMinutes() / 60.0;
     this._mockData.stations.forEach(stn => {
-      // Find open active anomalies on this station
-      const openAnoms = this._mockData.anomalies.filter(a => a.station_id === stn.id && a.status === 'DETECTED');
+      // Find open active anomalies on this station across mock and client injections
+      const clientActive = this._clientInjectedAnomalies.filter(a => 
+        a.station_id === stn.id && a.status === 'DETECTED' && !this._resolvedAnomalyIds.has(a.id)
+      );
+      const mockActive = this._mockData.anomalies.filter(a => 
+        a.station_id === stn.id && a.status === 'DETECTED' && !this._resolvedAnomalyIds.has(a.id)
+      );
+      const openAnoms = [...clientActive, ...mockActive];
       const activeAnom = openAnoms[0] || null;
+      const activeFault = this._activeInjectedFaults ? this._activeInjectedFaults[stn.id] : null;
 
       // Base realistic diurnal readings
       let temp = 28.5 + 6.0 * Math.sin(Math.PI * (hour - 8) / 12.0) + (stn.elevation_m > 1000 ? -12.0 : (stn.elevation_m > 400 ? -4.0 : 0.0));
@@ -201,8 +212,15 @@ const API = {
       let wind = 3.5 + Math.random() * 2.5;
       let solar = hour >= 6 && hour <= 18 ? Math.sin(Math.PI * (hour - 6) / 12.0) * 850 : 0.0;
 
-      // If active anomaly exists, apply the faulty value
-      if (activeAnom) {
+      // If active injected fault exists, apply the EXACT operator value
+      if (activeFault && activeFault.injectedValue !== undefined) {
+        const val = activeFault.injectedValue;
+        if (activeFault.sensor === 'temperature_c') temp = val;
+        else if (activeFault.sensor === 'humidity_pct') rh = val;
+        else if (activeFault.sensor === 'pressure_hpa') press = val;
+        else if (activeFault.sensor === 'wind_speed_ms') wind = val;
+        else if (activeFault.sensor === 'solar_radiation_wm2') solar = val;
+      } else if (activeAnom) {
         if (activeAnom.sensor === 'temperature_c') temp = activeAnom.raw_value;
         else if (activeAnom.sensor === 'humidity_pct') rh = activeAnom.raw_value;
         else if (activeAnom.sensor === 'pressure_hpa') press = activeAnom.raw_value;
@@ -220,15 +238,21 @@ const API = {
         solar_radiation_wm2: parseFloat(solar.toFixed(1)),
         dew_point_c: parseFloat((temp - ((100 - rh) / 5)).toFixed(2)),
         battery_v: 12.6,
-        is_anomaly: !!activeAnom,
+        is_anomaly: openAnoms.length > 0,
         active_anomaly: activeAnom
       };
       stn.active_anomalies = openAnoms;
       stn.active_anomalies_count = openAnoms.length;
-      const isCrit = openAnoms.some(a => (a.severity || '').toUpperCase() === 'CRITICAL');
-      const isWarn = openAnoms.some(a => ['WARNING', 'HIGH', 'MEDIUM'].includes((a.severity || '').toUpperCase()));
-      stn.status = isCrit ? 'CRITICAL' : isWarn ? 'DEGRADED' : 'OPERATIONAL';
-      stn.health_score = isCrit ? 64.0 : isWarn ? 82.0 : 98.4;
+
+      if (openAnoms.length === 0) {
+        stn.status = 'OPERATIONAL';
+        stn.health_score = 100.0;
+      } else {
+        const isCrit = openAnoms.some(a => (a.severity || '').toUpperCase() === 'CRITICAL') || (activeFault && activeFault.severity === 'CRITICAL');
+        const isWarn = openAnoms.some(a => ['WARNING', 'HIGH', 'MEDIUM'].includes((a.severity || '').toUpperCase()));
+        stn.status = isCrit ? 'CRITICAL' : (isWarn ? 'DEGRADED' : 'OPERATIONAL');
+        stn.health_score = isCrit ? 52.0 : 75.0;
+      }
     });
   },
 
@@ -330,6 +354,38 @@ const API = {
             is_anomaly: false
           };
         }
+
+        // Reconcile with client-injected faults and resolved anomaly IDs
+        const clientAnoms = this._clientInjectedAnomalies.filter(a => 
+          a.station_id === stn.id && a.status === 'DETECTED' && !this._resolvedAnomalyIds.has(a.id)
+        );
+        const serverAnoms = (stn.active_anomalies || []).filter(a => 
+          a.status === 'DETECTED' && !this._resolvedAnomalyIds.has(a.id)
+        );
+        const activeFault = this._activeInjectedFaults ? this._activeInjectedFaults[stn.id] : null;
+
+        const allActive = [...clientAnoms, ...serverAnoms];
+        stn.active_anomalies = allActive;
+        stn.active_anomalies_count = allActive.length;
+
+        if (activeFault && activeFault.injectedValue !== undefined && stn.latest_reading) {
+          stn.latest_reading[activeFault.sensor] = activeFault.injectedValue;
+          stn.latest_reading.is_anomaly = true;
+        }
+
+        if (allActive.length === 0 && !activeFault) {
+          stn.status = 'OPERATIONAL';
+          stn.health_score = 100.0;
+          if (stn.latest_reading) {
+            stn.latest_reading.is_anomaly = false;
+            stn.latest_reading.active_anomaly = null;
+          }
+        } else {
+          const isCrit = allActive.some(a => (a.severity || '').toUpperCase() === 'CRITICAL') || (activeFault && activeFault.severity === 'CRITICAL');
+          stn.status = isCrit ? 'CRITICAL' : 'DEGRADED';
+          stn.health_score = isCrit ? 52.0 : 75.0;
+        }
+
         return stn;
       });
     }
@@ -389,138 +445,223 @@ const API = {
     if (filters.anomaly_type) params.append('anomaly_type', filters.anomaly_type);
     if (filters.limit) params.append('limit', filters.limit);
 
-    return this._fetchOrFallback(`${this.baseUrl}/api/anomalies?${params.toString()}`, {}, () => {
-      return this._mockData.anomalies.filter(a => {
-        if (filters.station_id && a.station_id !== filters.station_id) return false;
-        if (filters.severity) {
-          const filterSev = filters.severity.toUpperCase();
-          const anomSev = (a.severity || '').toUpperCase();
-          if (filterSev === 'WARNING' || filterSev === 'HIGH') {
-            if (anomSev !== 'WARNING' && anomSev !== 'HIGH') return false;
-          } else if (anomSev !== filterSev) {
-            return false;
-          }
+    let rawList = await this._fetchOrFallback(`${this.baseUrl}/api/anomalies?${params.toString()}`, {}, () => {
+      return [...this._mockData.anomalies];
+    }).catch(() => [...this._mockData.anomalies]) || [];
+
+    if (!Array.isArray(rawList)) rawList = [];
+
+    // Merge client-injected active anomalies if not already present by ID
+    const existingIds = new Set(rawList.map(a => a.id));
+    const activeClientAnoms = this._clientInjectedAnomalies.filter(a => 
+      !existingIds.has(a.id) && !this._resolvedAnomalyIds.has(a.id) && a.status === 'DETECTED'
+    );
+
+    let combined = [...activeClientAnoms, ...rawList];
+
+    // Synchronize resolved statuses
+    combined.forEach(a => {
+      if (this._resolvedAnomalyIds.has(a.id)) {
+        a.status = 'RESOLVED';
+      }
+    });
+
+    return combined.filter(a => {
+      if (filters.station_id && a.station_id !== filters.station_id) return false;
+      if (filters.severity) {
+        const filterSev = filters.severity.toUpperCase();
+        const anomSev = (a.severity || '').toUpperCase();
+        if (filterSev === 'WARNING' || filterSev === 'HIGH') {
+          if (anomSev !== 'WARNING' && anomSev !== 'HIGH') return false;
+        } else if (anomSev !== filterSev) {
+          return false;
         }
-        if (filters.status && a.status !== filters.status.toUpperCase()) return false;
-        if (filters.anomaly_type && a.anomaly_type !== filters.anomaly_type) return false;
-        return true;
-      });
+      }
+      if (filters.status && a.status !== filters.status.toUpperCase()) return false;
+      if (filters.anomaly_type && a.anomaly_type !== filters.anomaly_type) return false;
+      return true;
     });
   },
 
   async getAnomalyStats() {
-    return this._fetchOrFallback(`${this.baseUrl}/api/anomalies/stats`, {}, () => {
-      const active = this._mockData.anomalies.filter(a => a.status === 'DETECTED').length;
-      const crit = this._mockData.anomalies.filter(a => a.status === 'DETECTED' && a.severity === 'CRITICAL').length;
-      return {
+    let stats = await this._fetchOrFallback(`${this.baseUrl}/api/anomalies/stats`, {}, () => null).catch(() => null);
+
+    const activeAnoms = await this.getAnomalies({ status: 'DETECTED' }).catch(() => []);
+    const active = activeAnoms.length;
+    const crit = activeAnoms.filter(a => (a.severity || '').toUpperCase() === 'CRITICAL').length;
+
+    if (!stats || typeof stats !== 'object') {
+      stats = {
         total_stations: this._mockData.stations.length,
-        active_unresolved: active,
-        critical_unresolved: crit,
         accuracy_rate: 98.8,
         f1_score: 0.948
       };
-    });
+    }
+
+    stats.active_unresolved = active;
+    stats.critical_unresolved = crit;
+    return stats;
   },
 
   async triageAnomaly(anomalyId, status, triageNotes = '') {
+    this._resolvedAnomalyIds.add(anomalyId);
+
+    const clientAnom = this._clientInjectedAnomalies.find(a => a.id === anomalyId);
+    if (clientAnom) clientAnom.status = status;
+
+    const mockAnom = this._mockData.anomalies.find(a => a.id === anomalyId);
+    if (mockAnom) mockAnom.status = status;
+
+    const target = clientAnom || mockAnom;
+    const targetStnId = target ? target.station_id : null;
+
+    if (targetStnId) {
+      delete this._activeInjectedFaults[targetStnId];
+      const remainingMock = this._mockData.anomalies.filter(a => a.station_id === targetStnId && a.status === 'DETECTED' && !this._resolvedAnomalyIds.has(a.id));
+      const remainingClient = this._clientInjectedAnomalies.filter(a => a.station_id === targetStnId && a.status === 'DETECTED' && !this._resolvedAnomalyIds.has(a.id));
+      const totalRem = remainingMock.length + remainingClient.length;
+
+      const stn = this._mockData.stations.find(s => s.id === targetStnId);
+      if (stn && totalRem === 0) {
+        stn.status = 'OPERATIONAL';
+        stn.health_score = 100.0;
+        stn.active_anomalies = [];
+        stn.active_anomalies_count = 0;
+        if (stn.latest_reading) {
+          stn.latest_reading.is_anomaly = false;
+          stn.latest_reading.active_anomaly = null;
+        }
+      }
+    }
+
     return this._fetchOrFallback(`${this.baseUrl}/api/anomalies/${anomalyId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status, triage_notes: triageNotes })
-    }, () => {
-      const target = this._mockData.anomalies.find(a => a.id === anomalyId);
-      if (target) {
-        target.status = status;
-        const remainingForStn = this._mockData.anomalies.filter(a => a.station_id === target.station_id && a.status === 'DETECTED');
-        const stn = this._mockData.stations.find(s => s.id === target.station_id);
-        if (stn) {
-          stn.active_anomalies_count = remainingForStn.length;
-          stn.active_anomalies = remainingForStn;
-          if (remainingForStn.length === 0) {
-            stn.status = 'OPERATIONAL';
-            stn.health_score = 98.4;
-            if (stn.latest_reading) {
-              stn.latest_reading.is_anomaly = false;
-              stn.latest_reading.active_anomaly = null;
-            }
-          }
-        }
-      }
-      return { status: "UPDATED", anomaly_id: anomalyId, new_status: status };
-    });
+    }, () => ({ status: "UPDATED", anomaly_id: anomalyId, new_status: status }));
   },
 
-
   async resetActiveAnomalies() {
+    this._clientInjectedAnomalies.forEach(a => {
+      this._resolvedAnomalyIds.add(a.id);
+      a.status = 'RESOLVED';
+    });
+    this._mockData.anomalies.forEach(a => {
+      this._resolvedAnomalyIds.add(a.id);
+      if (a.status === 'DETECTED') a.status = 'RESOLVED';
+    });
+    this._activeInjectedFaults = {};
+    this._mockData.faults = [];
+
+    this._mockData.stations.forEach(s => {
+      s.status = 'OPERATIONAL';
+      s.health_score = 100.0;
+      s.active_anomalies = [];
+      s.active_anomalies_count = 0;
+      if (s.latest_reading) {
+        s.latest_reading.is_anomaly = false;
+        s.latest_reading.active_anomaly = null;
+      }
+    });
+
+    try {
+      await this._fetchOrFallback(`${this.baseUrl}/api/simulate/clear`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }, () => ({ status: "CLEARED" })).catch(() => {});
+    } catch (e) {}
+
     return this._fetchOrFallback(`${this.baseUrl}/api/anomalies/reset`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
-    }, () => {
-      const count = this._mockData.anomalies.filter(a => a.status === 'DETECTED').length;
-      this._mockData.anomalies.forEach(a => {
-        if (a.status === 'DETECTED') a.status = 'RESOLVED';
-      });
-      this._mockData.stations.forEach(s => {
-        s.status = 'OPERATIONAL';
-        s.health_score = 100.0;
-      });
-      return { status: "SUCCESS", resetted_count: count, active_remaining: 0 };
-    });
+    }, () => ({ status: "SUCCESS", resetted_count: 0, active_remaining: 0 }));
   },
 
-  async injectFault(stationId, anomalyType, sensor, magnitude, durationSteps = 5, severity = 'AUTO', injectedValue = null) {
+  async injectFault(stationId, anomalyType, sensor, magnitude, durationSteps = 96, severity = 'AUTO', injectedValue = null) {
     const rawVal = (injectedValue !== null && injectedValue !== undefined && !isNaN(Number(injectedValue))) ? parseFloat(injectedValue) : null;
-    return this._fetchOrFallback(`${this.baseUrl}/api/simulate/inject`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        station_id: stationId,
-        anomaly_type: anomalyType,
-        sensor: sensor,
-        magnitude: parseFloat(magnitude),
-        duration_steps: parseInt(durationSteps),
-        severity: severity,
-        injected_value: rawVal
-      })
-    }, () => {
-      const units = { temperature_c: '°C', humidity_pct: '%', pressure_hpa: 'hPa', wind_speed_ms: 'm/s', solar_radiation_wm2: 'W/m²' };
-      const unit = units[sensor] || '';
-      const base = sensor === 'temperature_c' ? 28.5 : sensor === 'humidity_pct' ? 55.0 : 1013.25;
-      const finalVal = rawVal !== null ? rawVal : parseFloat((base + magnitude).toFixed(2));
-      const isCrit = severity === 'CRITICAL' || Math.abs(magnitude) >= 15 || anomalyType === 'SPIKE';
-      const sev = severity !== 'AUTO' ? severity : (isCrit ? 'CRITICAL' : 'HIGH');
+    const units = { temperature_c: '°C', humidity_pct: '%', pressure_hpa: 'hPa', wind_speed_ms: 'm/s', solar_radiation_wm2: 'W/m²', dew_point_c: '°C', rain_rate_mmh: 'mm/h', battery_v: 'V' };
+    const unit = units[sensor] || '';
+    const baselines = { temperature_c: 28.5, humidity_pct: 55.0, pressure_hpa: 1013.25, wind_speed_ms: 4.2, solar_radiation_wm2: 650.0 };
+    const base = baselines[sensor] || 25.0;
+    const finalVal = rawVal !== null ? rawVal : parseFloat((base + magnitude).toFixed(2));
+    const isCrit = severity === 'CRITICAL' || Math.abs(magnitude) >= 15 || anomalyType === 'SPIKE';
+    const sev = severity !== 'AUTO' ? severity : (isCrit ? 'CRITICAL' : 'HIGH');
 
-      const stn = this._mockData.stations.find(s => s.id === stationId) || this._mockData.stations[0];
-      if (stn) {
-        stn.status = isCrit ? 'CRITICAL' : 'DEGRADED';
-        stn.health_score = isCrit ? 64.0 : 80.0;
+    const stn = this._mockData.stations.find(s => s.id === stationId) || this._mockData.stations[0];
+
+    const newAnomaly = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      station_id: stationId,
+      station_code: stn ? stn.code : stationId,
+      station_name: stn ? stn.name : 'AWS Node',
+      timestamp: new Date().toISOString(),
+      sensor: sensor,
+      anomaly_type: anomalyType,
+      severity: sev,
+      confidence_score: 0.98,
+      raw_value: finalVal,
+      expected_range: `${base.toFixed(1)} ${unit}`,
+      ml_model: "Fault-Injection-Studio",
+      explanation: `Injected synthetic ${anomalyType} fault (${sev}) with faulty value ${finalVal} ${unit}. [Root Cause: Hardware / Transducer Sensor Anomaly] Action: Inspect and recalibrate ${sensor} transducer element`,
+      status: "DETECTED",
+      drift: `${anomalyType} (${finalVal} ${unit})`,
+      slope: "Instantaneous Step Rate-of-Change",
+      root_cause: "Hardware / Transducer Sensor Anomaly",
+      action: "Inspect and recalibrate sensor transducer element",
+      injected_value: `${finalVal} ${unit}`
+    };
+
+    // Guarantee presence in client state
+    this._clientInjectedAnomalies.unshift(newAnomaly);
+    this._mockData.anomalies.unshift(newAnomaly);
+    this._activeInjectedFaults[stationId] = {
+      stationId,
+      anomalyType,
+      sensor,
+      magnitude: parseFloat(magnitude),
+      durationSteps: Math.max(parseInt(durationSteps) || 96, 96),
+      remainingSteps: Math.max(parseInt(durationSteps) || 96, 96),
+      severity: sev,
+      injectedValue: finalVal
+    };
+
+    if (stn) {
+      stn.status = isCrit ? 'CRITICAL' : 'DEGRADED';
+      stn.health_score = isCrit ? 52.0 : 75.0;
+      stn.active_anomalies = [newAnomaly];
+      stn.active_anomalies_count = 1;
+      if (stn.latest_reading) {
+        stn.latest_reading[sensor] = finalVal;
+        stn.latest_reading.is_anomaly = true;
+        stn.latest_reading.active_anomaly = newAnomaly;
       }
+    }
 
-      this._mockData.anomalies.unshift({
-        id: Math.floor(Math.random() * 90000) + 10000,
-        station_id: stationId,
-        station_code: stn ? stn.code : stationId,
-        station_name: stn ? stn.name : 'AWS Node',
-        timestamp: new Date().toISOString(),
-        sensor: sensor,
-        anomaly_type: anomalyType,
-        severity: sev,
-        confidence_score: 0.98,
-        raw_value: finalVal,
-        expected_range: `${base.toFixed(1)} ${unit}`,
-        ml_model: "Fault-Injection-Studio",
-        explanation: `Injected synthetic ${anomalyType} fault (${sev}) with faulty value ${finalVal} ${unit}.`,
-        status: "DETECTED",
-        drift: `${anomalyType} (${finalVal} ${unit})`,
-        slope: "Instantaneous Step Rate-of-Change",
-        root_cause: "Hardware / Transducer Sensor Anomaly",
-        action: "Inspect and recalibrate sensor transducer element",
-        injected_value: `${finalVal} ${unit}`
-      });
+    try {
+      await this._fetchOrFallback(`${this.baseUrl}/api/simulate/inject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          station_id: stationId,
+          anomaly_type: anomalyType,
+          sensor: sensor,
+          magnitude: parseFloat(magnitude),
+          duration_steps: parseInt(durationSteps),
+          severity: severity,
+          injected_value: rawVal
+        })
+      }, () => ({ status: "INJECTED", station_id: stationId }));
+    } catch (e) {
+      console.warn('Backend inject caught error, client state active:', e);
+    }
 
-      this._mockData.faults.push({ stationId, anomalyType, sensor, magnitude, durationSteps, severity, injectedValue: finalVal });
-      return { status: "INJECTED", station_id: stationId, raw_value: finalVal, injected_value: `${finalVal} ${unit}` };
-    });
+    return {
+      status: "INJECTED",
+      station_id: stationId,
+      raw_value: finalVal,
+      injected_value: `${finalVal} ${unit}`,
+      anomaly: newAnomaly
+    };
   },
 
   async stepSimulation(liveStreamActive = false) {
@@ -530,58 +671,33 @@ const API = {
     }, () => {
       let created = 0;
       if (this._mockData.faults.length > 0) {
-        const fault = this._mockData.faults.shift();
+        const fault = this._mockData.faults[0];
+        fault.remainingSteps = (fault.remainingSteps || fault.durationSteps || 96) - 1;
+        if (fault.remainingSteps <= 0) {
+          this._mockData.faults.shift();
+          delete this._activeInjectedFaults[fault.stationId];
+        }
+
         const stn = this._mockData.stations.find(s => s.id === fault.stationId) || this._mockData.stations[0];
         const units = { temperature_c: '°C', humidity_pct: '%', pressure_hpa: 'hPa', wind_speed_ms: 'm/s', solar_radiation_wm2: 'W/m²' };
         const unit = units[fault.sensor] || '';
+        const baselines = { temperature_c: 28.5, humidity_pct: 55.0, pressure_hpa: 1013.25, wind_speed_ms: 4.2, solar_radiation_wm2: 650.0 };
+        const base = baselines[fault.sensor] || 25.0;
         const faultyVal = (fault.injectedValue !== undefined && fault.injectedValue !== null) ? fault.injectedValue : parseFloat((base + fault.magnitude).toFixed(2));
 
-        let assignedSeverity = 'CRITICAL';
-        if (fault.severity && fault.severity !== 'AUTO') {
-          assignedSeverity = fault.severity.toUpperCase();
-        } else {
-          const absMag = Math.abs(fault.magnitude);
-          if (fault.anomalyType === 'SPIKE') {
-            assignedSeverity = absMag >= 18.0 ? 'CRITICAL' : (absMag >= 8.0 ? 'HIGH' : 'WARNING');
-          } else if (fault.anomalyType === 'SENSOR_DRIFT') {
-            assignedSeverity = absMag >= 15.0 ? 'CRITICAL' : (absMag >= 6.0 ? 'HIGH' : 'WARNING');
-          } else if (fault.anomalyType === 'FROZEN_SENSOR') {
-            assignedSeverity = 'WARNING';
-          } else {
-            assignedSeverity = absMag >= 20.0 ? 'CRITICAL' : 'WARNING';
-          }
-        }
-
+        let assignedSeverity = fault.severity && fault.severity !== 'AUTO' ? fault.severity.toUpperCase() : 'CRITICAL';
         const isCrit = assignedSeverity === 'CRITICAL';
-        const isWarn = assignedSeverity === 'WARNING' || assignedSeverity === 'HIGH' || assignedSeverity === 'MEDIUM';
+        const isWarn = !isCrit;
 
-        this._mockData.anomalies.unshift({
-          id: Math.floor(Math.random() * 90000) + 10000,
-          station_id: stn.id,
-          station_code: stn.code,
-          station_name: stn.name,
-          timestamp: new Date().toISOString(),
-          sensor: fault.sensor,
-          anomaly_type: fault.anomalyType,
-          severity: assignedSeverity,
-          confidence_score: isCrit ? 0.96 : 0.84,
-          raw_value: parseFloat(faultyVal),
-          expected_range: `${base.toFixed(1)} ${unit}`,
-          ml_model: "Fault-Injection-Studio",
-          explanation: `Injected synthetic ${fault.anomalyType} fault (${assignedSeverity}) with faulty value ${faultyVal} ${unit}.`,
-          status: "DETECTED",
-          drift: `${fault.anomalyType} (${faultyVal} ${unit})`,
-          slope: "Instantaneous Step Rate-of-Change",
-          root_cause: "Hardware / Transducer Sensor Anomaly",
-          injected_value: `${faultyVal} ${unit}`
-        });
         created = 1;
-        stn.status = isCrit ? "CRITICAL" : (isWarn ? "DEGRADED" : "OPERATIONAL");
-        stn.health_score = isCrit ? 64.0 : (isWarn ? 82.0 : 98.4);
+        stn.status = isCrit ? "CRITICAL" : "DEGRADED";
+        stn.health_score = isCrit ? 52.0 : 75.0;
       } else if (liveStreamActive) {
-        // Natural live stream background anomaly generation ONLY when live stream is actively running (~25% chance per step)
-        if (Math.random() < 0.25) {
-          const randomStn = this._mockData.stations[Math.floor(Math.random() * this._mockData.stations.length)];
+        // Natural background anomaly generation during continuous live stream
+        // Only target stations that DO NOT have active operator injected faults
+        const availableStns = this._mockData.stations.filter(s => !this._activeInjectedFaults[s.id]);
+        if (availableStns.length > 0 && Math.random() < 0.25) {
+          const randomStn = availableStns[Math.floor(Math.random() * availableStns.length)];
           const sampleFaults = [
             { sensor: 'temperature_c', type: 'SPIKE', mag: +(Math.random() * 8 + 18).toFixed(1), unit: '°C', base: 28.5, model: 'Tier-1:Dynamic-StepLimit', drift: 'Transient Step Jump', cause: 'THERMAL_SURGE_OR_ADC_GLITCH' },
             { sensor: 'humidity_pct', type: 'SENSOR_DRIFT', mag: +(Math.random() * 15 + 20).toFixed(1), unit: '%', base: 55.0, model: 'Tier-2:Magnus-DewPoint', drift: 'Progressive Drift', cause: 'CAPACITIVE_POLYMER_DEGRADATION' },
@@ -620,16 +736,56 @@ const API = {
     });
   },
 
-
   async clearFaults(stationId = null) {
+    if (stationId) {
+      delete this._activeInjectedFaults[stationId];
+      this._clientInjectedAnomalies.forEach(a => {
+        if (a.station_id === stationId) {
+          this._resolvedAnomalyIds.add(a.id);
+          a.status = 'RESOLVED';
+        }
+      });
+      this._mockData.anomalies.forEach(a => {
+        if (a.station_id === stationId && a.status === 'DETECTED') {
+          this._resolvedAnomalyIds.add(a.id);
+          a.status = 'RESOLVED';
+        }
+      });
+      const stn = this._mockData.stations.find(s => s.id === stationId);
+      if (stn) {
+        stn.status = 'OPERATIONAL';
+        stn.health_score = 100.0;
+        stn.active_anomalies = [];
+        stn.active_anomalies_count = 0;
+      }
+    } else {
+      this._activeInjectedFaults = {};
+      this._clientInjectedAnomalies.forEach(a => {
+        this._resolvedAnomalyIds.add(a.id);
+        a.status = 'RESOLVED';
+      });
+      this._mockData.anomalies.forEach(a => {
+        this._resolvedAnomalyIds.add(a.id);
+        if (a.status === 'DETECTED') a.status = 'RESOLVED';
+      });
+      this._mockData.faults = [];
+      this._mockData.stations.forEach(s => {
+        s.status = 'OPERATIONAL';
+        s.health_score = 100.0;
+        s.active_anomalies = [];
+        s.active_anomalies_count = 0;
+        if (s.latest_reading) {
+          s.latest_reading.is_anomaly = false;
+          s.latest_reading.active_anomaly = null;
+        }
+      });
+    }
+
     return this._fetchOrFallback(`${this.baseUrl}/api/simulate/clear`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(stationId ? { station_id: stationId } : {})
-    }, () => {
-      this._mockData.faults = [];
-      return { status: "CLEARED" };
-    });
+    }, () => ({ status: "CLEARED" }));
   },
 
   async getModelMetrics() {
@@ -757,60 +913,127 @@ const API = {
   },
 
   async getSensorHealth(stationId) {
-    return this._fetchOrFallback(`${this.baseUrl}/api/sensors/health/${stationId}`, {}, () => {
-      this._syncStationLiveReadings();
-      const stn = this._mockData.stations.find(s => s.id === stationId) || this._mockData.stations[0];
-      const openAnoms = this._mockData.anomalies.filter(a => a.station_id === stationId && a.status === 'DETECTED');
+    this._syncStationLiveReadings();
+    
+    // Check active unresolved anomalies for this station
+    const clientActive = this._clientInjectedAnomalies.filter(a => 
+      a.station_id === stationId && a.status === 'DETECTED' && !this._resolvedAnomalyIds.has(a.id)
+    );
+    const mockActive = this._mockData.anomalies.filter(a => 
+      a.station_id === stationId && a.status === 'DETECTED' && !this._resolvedAnomalyIds.has(a.id)
+    );
+    const activeFault = this._activeInjectedFaults ? this._activeInjectedFaults[stationId] : null;
+    const activeAnoms = [...clientActive, ...mockActive];
 
-      const hasCrit = openAnoms.some(a => (a.severity || '').toUpperCase() === 'CRITICAL');
-      const hasWarn = openAnoms.some(a => ['WARNING', 'HIGH', 'MEDIUM'].includes((a.severity || '').toUpperCase()));
+    // If NO active unresolved anomalies exist for this station:
+    // ALWAYS return 100.0% OPTIMAL HEALTH with 0 faults
+    if (activeAnoms.length === 0 && !activeFault) {
+      return {
+        station_id: stationId,
+        station_composite_health: 100.0,
+        status: 'OPTIMAL_HEALTH',
+        sensors: {
+          temperature_c: {
+            sensor_name: 'Platinum Resistance Thermometer (Pt100/Pt1000)',
+            health_score: 100.0,
+            status: 'OPTIMAL_HEALTH',
+            drift_slope_per_step: 0.0,
+            drift_r_squared: 0.0,
+            estimated_rul_days: 365,
+            recent_fault_count: 0,
+            maintenance_recommendation: 'Sensor operational; nominal calibration within WMO uncertainty limits.'
+          },
+          humidity_pct: {
+            sensor_name: 'Capacitive Thin-Film Polymer Hygrometer',
+            health_score: 100.0,
+            status: 'OPTIMAL_HEALTH',
+            drift_slope_per_step: 0.0,
+            drift_r_squared: 0.0,
+            estimated_rul_days: 365,
+            recent_fault_count: 0,
+            maintenance_recommendation: 'Sensor operational; nominal calibration within WMO uncertainty limits.'
+          },
+          pressure_hpa: {
+            sensor_name: 'Piezoresistive Silicon Barometric Transducer',
+            health_score: 100.0,
+            status: 'OPTIMAL_HEALTH',
+            drift_slope_per_step: 0.0,
+            drift_r_squared: 0.0,
+            estimated_rul_days: 365,
+            recent_fault_count: 0,
+            maintenance_recommendation: 'Sensor operational; nominal calibration within WMO uncertainty limits.'
+          }
+        }
+      };
+    }
 
-      const tempAnoms = openAnoms.filter(a => a.sensor === 'temperature_c');
-      const humAnoms = openAnoms.filter(a => a.sensor === 'humidity_pct' || a.sensor === 'dew_point_c');
-      const pressAnoms = openAnoms.filter(a => a.sensor === 'pressure_hpa');
+    // Otherwise active anomalies exist: evaluate degradation
+    let serverHealth = await this._fetchOrFallback(`${this.baseUrl}/api/sensors/health/${stationId}`, {}, () => null).catch(() => null);
 
-      const tempScore = Math.max(15, 100 - tempAnoms.length * 28 - (hasCrit ? 15 : 0));
-      const humScore = Math.max(20, 100 - humAnoms.length * 24 - (hasWarn ? 10 : 0));
-      const pressScore = Math.max(25, 100 - pressAnoms.length * 20);
+    if (serverHealth && serverHealth.sensors && activeAnoms.length === 0 && !activeFault) {
+      serverHealth.station_composite_health = 100.0;
+      serverHealth.status = 'OPTIMAL_HEALTH';
+      Object.values(serverHealth.sensors).forEach(p => {
+        p.health_score = 100.0;
+        p.status = 'OPTIMAL_HEALTH';
+        p.recent_fault_count = 0;
+        p.drift_slope_per_step = 0.0;
+        p.drift_r_squared = 0.0;
+        p.estimated_rul_days = 365;
+        p.maintenance_recommendation = 'Sensor operational; nominal calibration within WMO uncertainty limits.';
+      });
+      return serverHealth;
+    }
 
-      const composite = Math.round((tempScore * 0.4 + humScore * 0.3 + pressScore * 0.3) * 10) / 10;
+    // Evaluate degradation for active anomalies
+    const hasCrit = activeAnoms.some(a => (a.severity || '').toUpperCase() === 'CRITICAL') || (activeFault && activeFault.severity === 'CRITICAL');
+    const tempAnoms = activeAnoms.filter(a => a.sensor === 'temperature_c' || (activeFault && activeFault.sensor === 'temperature_c'));
+    const humAnoms = activeAnoms.filter(a => a.sensor === 'humidity_pct' || a.sensor === 'dew_point_c' || (activeFault && activeFault.sensor === 'humidity_pct'));
+    const pressAnoms = activeAnoms.filter(a => a.sensor === 'pressure_hpa' || (activeFault && activeFault.sensor === 'pressure_hpa'));
 
-      const getProfile = (name, score, slope, r2, anomsList, baseRul) => {
-        let status = 'OPTIMAL_HEALTH';
-        let rec = 'Sensor operational; nominal calibration within WMO uncertainty limits.';
-        let rul = baseRul;
+    const tempScore = tempAnoms.length === 0 ? 100.0 : Math.max(15.0, 100.0 - tempAnoms.length * 35.0 - (hasCrit ? 20.0 : 0.0));
+    const humScore = humAnoms.length === 0 ? 100.0 : Math.max(20.0, 100.0 - humAnoms.length * 30.0);
+    const pressScore = pressAnoms.length === 0 ? 100.0 : Math.max(25.0, 100.0 - pressAnoms.length * 35.0 - (hasCrit ? 20.0 : 0.0));
+
+    const composite = Math.round((tempScore * 0.4 + humScore * 0.3 + pressScore * 0.3) * 10) / 10;
+
+    const getProfile = (name, score, slope, r2, anomsList, baseRul) => {
+      let status = 'OPTIMAL_HEALTH';
+      let rec = 'Sensor operational; nominal calibration within WMO uncertainty limits.';
+      let rul = baseRul;
+      if (anomsList.length > 0) {
         if (score < 60) {
           status = 'CRITICAL_MAINTENANCE_REQUIRED';
-          rec = `Severe transducer degradation detected. Drift R²=${r2.toFixed(2)}. Immediate bench recalibration required.`;
+          rec = `Severe transducer degradation detected (${anomsList[0].injected_value || anomsList[0].raw_value || 'out-of-bounds'}). Immediate bench recalibration required.`;
           rul = Math.max(3, Math.round(baseRul * 0.12));
-        } else if (score < 85) {
+        } else {
           status = 'DEGRADATION_DETECTED';
           rec = `Early calibration drift detected (${slope > 0 ? '+' : ''}${slope.toFixed(4)}/step). Schedule routine field inspection.`;
           rul = Math.max(14, Math.round(baseRul * 0.45));
         }
-        return {
-          sensor_name: name,
-          health_score: score,
-          status: status,
-          drift_slope_per_step: slope,
-          drift_r_squared: r2,
-          estimated_rul_days: rul,
-          recent_fault_count: anomsList.length,
-          maintenance_recommendation: rec
-        };
-      };
-
+      }
       return {
-        station_id: stationId,
-        station_composite_health: composite,
-        status: composite >= 80 ? 'OPERATIONAL' : (composite >= 55 ? 'DEGRADED' : 'CRITICAL'),
-        sensors: {
-          temperature_c: getProfile('Platinum Resistance Thermometer (Pt100/Pt1000)', tempScore, tempAnoms.length ? -0.0642 : 0.0012, tempAnoms.length ? 0.88 : 0.04, tempAnoms, 240),
-          humidity_pct: getProfile('Capacitive Thin-Film Polymer Hygrometer', humScore, humAnoms.length ? 0.0821 : 0.0025, humAnoms.length ? 0.79 : 0.06, humAnoms, 180),
-          pressure_hpa: getProfile('Piezoresistive Silicon Barometric Transducer', pressScore, pressAnoms.length ? -0.0315 : 0.0008, pressAnoms.length ? 0.68 : 0.03, pressAnoms, 365)
-        }
+        sensor_name: name,
+        health_score: score,
+        status: status,
+        drift_slope_per_step: anomsList.length > 0 ? slope : 0.0,
+        drift_r_squared: anomsList.length > 0 ? r2 : 0.0,
+        estimated_rul_days: rul,
+        recent_fault_count: anomsList.length,
+        maintenance_recommendation: rec
       };
-    });
+    };
+
+    return {
+      station_id: stationId,
+      station_composite_health: composite,
+      status: composite >= 80 ? 'OPERATIONAL' : (composite >= 55 ? 'DEGRADED' : 'CRITICAL'),
+      sensors: {
+        temperature_c: getProfile('Platinum Resistance Thermometer (Pt100/Pt1000)', tempScore, tempAnoms.length ? -0.0642 : 0.0, tempAnoms.length ? 0.88 : 0.0, tempAnoms, 240),
+        humidity_pct: getProfile('Capacitive Thin-Film Polymer Hygrometer', humScore, humAnoms.length ? 0.0821 : 0.0, humAnoms.length ? 0.79 : 0.0, humAnoms, 180),
+        pressure_hpa: getProfile('Piezoresistive Silicon Barometric Transducer', pressScore, pressAnoms.length ? -0.0315 : 0.0, pressAnoms.length ? 0.68 : 0.0, pressAnoms, 365)
+      }
+    };
   },
 
   async imputeReading(payload) {
@@ -1030,9 +1253,9 @@ class SkyGuardEdge:
   }
 };
 
-
-
-
-
-
-
+if (typeof window !== 'undefined') {
+  window.API = API;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = API;
+}

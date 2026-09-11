@@ -1678,11 +1678,32 @@ class WeatherApp {
         return;
       }
 
-      const composite = healthData.station_composite_health ?? 98.4;
-      const status = healthData.status || (composite >= 80 ? 'OPTIMAL_HEALTH' : (composite >= 55 ? 'DEGRADATION_DETECTED' : 'CRITICAL_MAINTENANCE_REQUIRED'));
+      const stn = this.stations.find(s => s.id === id);
+      const activeAnoms = ((stn && stn.active_anomalies) || []).filter(a => a.status === 'DETECTED');
+      const hasActive = activeAnoms.length > 0;
 
-      const isCrit = composite < 55 || status.includes('CRITICAL');
-      const isWarn = (composite >= 55 && composite < 80) || status.includes('DEGRADATION') || status.includes('DEGRADED');
+      // When all detected anomalies are resolved or 0, restore strictly to 100.0% OPTIMAL HEALTH
+      if (!hasActive && healthData) {
+        healthData.station_composite_health = 100.0;
+        healthData.status = 'OPTIMAL_HEALTH';
+        if (healthData.sensors) {
+          Object.values(healthData.sensors).forEach(p => {
+            p.health_score = 100.0;
+            p.status = 'OPTIMAL_HEALTH';
+            p.recent_fault_count = 0;
+            p.drift_slope_per_step = 0.0;
+            p.drift_r_squared = 0.0;
+            p.estimated_rul_days = 365;
+            p.maintenance_recommendation = 'Sensor operational; nominal calibration within WMO uncertainty limits.';
+          });
+        }
+      }
+
+      const composite = hasActive ? (healthData.station_composite_health ?? 98.4) : 100.0;
+      const status = hasActive ? (healthData.status || (composite >= 80 ? 'OPTIMAL_HEALTH' : (composite >= 55 ? 'DEGRADATION_DETECTED' : 'CRITICAL_MAINTENANCE_REQUIRED'))) : 'OPTIMAL_HEALTH';
+
+      const isCrit = hasActive && (composite < 55 || status.includes('CRITICAL'));
+      const isWarn = hasActive && ((composite >= 55 && composite < 80) || status.includes('DEGRADATION') || status.includes('DEGRADED'));
 
       if (scoreEl) {
         scoreEl.innerText = `${composite.toFixed(1)}%`;
@@ -1698,11 +1719,9 @@ class WeatherApp {
         }`;
       }
 
-      const stn = this.stations.find(s => s.id === id);
-      const activeAnoms = (stn && stn.active_anomalies) || [];
       if (faultsEl) {
-        faultsEl.innerText = `${activeAnoms.length} open fault${activeAnoms.length === 1 ? '' : 's'}`;
-        faultsEl.className = `font-mono font-bold ${activeAnoms.length > 0 ? 'text-amber-400' : 'text-emerald-400'}`;
+        faultsEl.innerText = `${hasActive ? activeAnoms.length : 0} open fault${activeAnoms.length === 1 && hasActive ? '' : 's'}`;
+        faultsEl.className = `font-mono font-bold ${hasActive ? 'text-amber-400' : 'text-emerald-400'}`;
       }
 
       if (container && healthData.sensors) {
